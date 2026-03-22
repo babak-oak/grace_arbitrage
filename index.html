@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grace Period Arbitrage — Bond Yield Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0f14; --surface: #13161d; --surface-raised: #1a1e27;
+    --border: #252a36; --border-accent: #3a4258;
+    --text: #e8eaf0; --text-muted: #7a8194; --text-dim: #4d556a;
+    --accent: #4ae3b5; --accent-dim: rgba(74,227,181,0.12); --accent-glow: rgba(74,227,181,0.06);
+    --gold: #f0c850; --gold-dim: rgba(240,200,80,0.12);
+    --red: #f06060; --red-dim: rgba(240,96,96,0.1);
+    --blue: #5b9cf5; --blue-dim: rgba(91,156,245,0.1);
+    --orange: #e8964f; --orange-dim: rgba(232,150,79,0.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:80px 80px;opacity:.12;pointer-events:none;z-index:0}
+  .page{display:none;position:relative;z-index:1}.page.active{display:block}
+  .container{max-width:1040px;margin:0 auto;padding:48px 24px 80px}
+  .tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--accent);background:var(--accent-dim);border:1px solid rgba(74,227,181,.2);padding:6px 14px;border-radius:4px;margin-bottom:20px}
+  h1{font-family:'DM Serif Display',serif;font-size:clamp(32px,5vw,48px);font-weight:400;line-height:1.15;margin-bottom:12px}
+  h1 span{color:var(--accent)}
+  .subtitle{font-size:15px;color:var(--text-muted);line-height:1.6;max-width:640px}
+  .section-header{display:flex;align-items:center;gap:10px;margin-bottom:24px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+  .section-number{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-dim);width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px}
+  .section-title{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted)}
+  .section{margin-bottom:40px}
+  @keyframes fadeDown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+  .anim-down{animation:fadeDown .6s ease-out}.anim-up{animation:fadeUp .5s ease-out both}
+
+  /* ─── Page 1 ─── */
+  .input-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px}
+  .input-group{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;transition:border-color .25s,box-shadow .25s}
+  .input-group:hover{border-color:var(--border-accent)}
+  .input-group:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+  .input-label{display:block;font-size:12px;font-weight:500;color:var(--text-muted);letter-spacing:.5px;margin-bottom:10px}
+  .input-wrapper{display:flex;align-items:center;gap:8px}
+  .input-wrapper input[type="text"],.input-wrapper input[type="number"]{flex:1;background:transparent;border:none;outline:none;font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:var(--text);width:100%}
+  .input-wrapper input::placeholder{color:var(--text-dim)}
+  .input-unit{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:500;color:var(--text-dim);white-space:nowrap}
+  .input-hint{font-size:11px;color:var(--text-dim);margin-top:8px;font-family:'IBM Plex Mono',monospace}
+  .results-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+  .results-body{padding:28px}
+  .mechanism{background:var(--surface-raised);border:1px solid var(--border);border-radius:10px;padding:20px 24px;margin-bottom:24px}
+  .mechanism-title{font-size:12px;font-weight:500;color:var(--text-muted);letter-spacing:.5px;margin-bottom:12px}
+  .mechanism-flow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .flow-step{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text)}
+  .flow-step .num{background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:600;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:4px}
+  .flow-arrow{color:var(--text-dim);font-size:16px}
+  .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+  .metric-card{background:var(--surface-raised);border:1px solid var(--border);border-radius:10px;padding:18px 20px;transition:transform .2s,border-color .2s}
+  .metric-card:hover{transform:translateY(-2px);border-color:var(--border-accent)}
+  .metric-label{font-size:11px;font-weight:500;color:var(--text-muted);letter-spacing:.5px;margin-bottom:8px}
+  .metric-value{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--text)}
+  .metric-value.accent{color:var(--accent)}.metric-value.gold{color:var(--gold)}
+  .metric-sub{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);margin-top:4px}
+  .breakdown-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .breakdown-title{font-size:13px;font-weight:500;color:var(--text-muted)}
+  .breakdown-toggle,.toggle-btn{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);background:var(--accent-dim);border:1px solid rgba(74,227,181,.2);padding:4px 12px;border-radius:4px;cursor:pointer;transition:background .2s}
+  .breakdown-toggle:hover,.toggle-btn:hover{background:rgba(74,227,181,.2)}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px;max-height:0;overflow:hidden;transition:max-height .4s ease}
+  .table-wrap.open{max-height:5000px}
+  table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:12px}
+  thead{background:var(--surface-raised)}
+  th{text-align:left;padding:10px 14px;color:var(--text-muted);font-weight:500;font-size:11px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid var(--border)}
+  td{padding:9px 14px;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:var(--accent-glow)}
+  td.positive{color:var(--accent)}td.negative{color:var(--red)}td.gold{color:var(--gold)}td.blue{color:var(--blue)}
+  .summary-bar{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,rgba(74,227,181,.08),rgba(74,227,181,.03));border:1px solid rgba(74,227,181,.2);border-radius:10px;padding:20px 24px;margin-top:24px;flex-wrap:wrap;gap:16px}
+  .summary-left{display:flex;flex-direction:column;gap:2px}
+  .summary-label{font-size:12px;color:var(--text-muted)}
+  .summary-value{font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:var(--accent)}
+  .summary-right{text-align:right}
+  .summary-eff{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;color:var(--gold)}
+  .summary-eff-label{font-size:11px;color:var(--text-muted);margin-top:2px}
+  .disclaimer{margin-top:32px;padding:16px 20px;background:var(--red-dim);border:1px solid rgba(240,96,96,.2);border-radius:8px;font-size:12px;color:var(--text-muted);line-height:1.6}
+  .disclaimer strong{color:var(--red)}
+  .cta-section{margin-top:48px;display:flex;justify-content:center}
+  .btn-cta{position:relative;font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;letter-spacing:1px;color:var(--bg);background:var(--accent);border:none;padding:18px 56px;border-radius:10px;cursor:pointer;overflow:hidden;transition:transform .2s,box-shadow .2s}
+  .btn-cta:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(74,227,181,.3)}
+  .btn-cta:active{transform:translateY(0)}
+  .btn-cta::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,.2) 50%,transparent 60%);transform:translateX(-100%);transition:transform .5s}
+  .btn-cta:hover::after{transform:translateX(100%)}
+
+  /* ─── Page 2 ─── */
+  .back-link{display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text-muted);text-decoration:none;margin-bottom:24px;cursor:pointer;transition:color .2s}
+  .back-link:hover{color:var(--accent)}
+  .back-link svg{width:14px;height:14px}
+  .form-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;transition:border-color .25s}
+  .form-card:focus-within{border-color:var(--border-accent)}
+  .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+  .field{margin-bottom:20px}.field:last-child{margin-bottom:0}
+  .field label{display:block;font-size:12px;font-weight:500;color:var(--text-muted);letter-spacing:.3px;margin-bottom:8px}
+  .field input[type="text"],.field input[type="email"],.field input[type="tel"],.field input[type="number"],.field input[type="date"]{width:100%;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s;color-scheme:dark}
+  .field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+  .field input::placeholder{color:var(--text-dim)}
+  .checkbox-group{display:flex;flex-direction:column;gap:14px;margin-top:8px}
+  .checkbox-item{display:flex;align-items:flex-start;gap:12px;cursor:pointer;user-select:none}
+  .checkbox-item input[type="checkbox"]{display:none}
+  .check-box{width:22px;height:22px;min-width:22px;border:2px solid var(--border-accent);border-radius:5px;display:flex;align-items:center;justify-content:center;transition:all .2s;margin-top:1px}
+  .check-box svg{width:12px;height:12px;stroke:var(--bg);stroke-width:3;fill:none;opacity:0;transform:scale(.5);transition:all .15s}
+  .checkbox-item input:checked+.check-box{background:var(--accent);border-color:var(--accent)}
+  .checkbox-item input:checked+.check-box svg{opacity:1;transform:scale(1)}
+  .check-label{font-size:14px;color:var(--text);line-height:1.5}
+  .check-sublabel{font-size:11px;color:var(--text-dim);display:block;margin-top:2px}
+  .bank-card,.bond-card{background:var(--surface-raised);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:12px;position:relative;animation:scaleIn .25s ease-out;transition:opacity .2s,transform .2s}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .card-num{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--text-dim);background:var(--surface);padding:3px 10px;border-radius:4px}
+  .btn-remove{background:var(--red-dim);border:1px solid rgba(240,96,96,.2);color:var(--red);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 12px;border-radius:4px;cursor:pointer;transition:background .2s}
+  .btn-remove:hover{background:rgba(240,96,96,.2)}
+  .bank-fields{display:grid;grid-template-columns:2fr 1fr 1fr 1.2fr;gap:14px}
+  .bank-fields .field,.bond-fields .field{margin-bottom:0}
+  .bond-fields{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+  .btn-add{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:transparent;border:2px dashed var(--border-accent);border-radius:10px;padding:16px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;margin-top:4px}
+  .btn-add.bank{color:var(--text-muted)}.btn-add.bank:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-glow)}
+  .btn-add.bond{color:var(--text-muted)}.btn-add.bond:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-dim)}
+  .btn-add .plus{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:400}
+  .btn-add.bank .plus{background:var(--accent-dim);color:var(--accent)}
+  .btn-add.bond .plus{background:var(--gold-dim);color:var(--gold)}
+
+  /* Calculate button */
+  .calc-section{margin-top:32px;display:flex;justify-content:center}
+  .btn-calc{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;letter-spacing:1px;color:var(--bg);background:var(--gold);border:none;padding:16px 48px;border-radius:10px;cursor:pointer;transition:transform .2s,box-shadow .2s}
+  .btn-calc:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(240,200,80,.3)}
+
+  /* Schedule section */
+  .schedule-event{display:flex;align-items:stretch;gap:0;margin-bottom:0;position:relative}
+  .sched-line{width:32px;display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+  .sched-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--border-accent);background:var(--surface);flex-shrink:0;z-index:1}
+  .sched-dot.repay{border-color:var(--red);background:var(--red-dim)}
+  .sched-dot.buy{border-color:var(--accent);background:var(--accent-dim)}
+  .sched-dot.mature{border-color:var(--gold);background:var(--gold-dim)}
+  .sched-dot.info{border-color:var(--blue);background:var(--blue-dim)}
+  .sched-stem{width:2px;flex:1;background:var(--border);min-height:12px}
+  .sched-content{flex:1;padding:0 0 20px 12px}
+  .sched-date{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);margin-bottom:4px}
+  .sched-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:2px}
+  .sched-detail{font-size:12px;color:var(--text-muted);font-family:'IBM Plex Mono',monospace}
+  .sched-title.repay{color:var(--red)}.sched-title.buy{color:var(--accent)}.sched-title.mature{color:var(--gold)}
+
+  /* Results summary cards */
+  .res-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px}
+  .res-card{background:var(--surface-raised);border:1px solid var(--border);border-radius:10px;padding:18px 20px}
+  .res-card .label{font-size:11px;font-weight:500;color:var(--text-muted);letter-spacing:.5px;margin-bottom:8px}
+  .res-card .val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600}
+  .res-card .sub{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-dim);margin-top:4px}
+
+  /* Integration guide */
+  .guide-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:16px}
+  .guide-header{display:flex;align-items:center;gap:10px;padding:16px 24px;background:var(--surface-raised);border-bottom:1px solid var(--border);cursor:pointer;transition:background .2s}
+  .guide-header:hover{background:var(--border)}
+  .guide-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center}
+  .guide-icon svg{width:14px;height:14px;fill:none}
+  .guide-label{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase}
+  .guide-chevron{margin-left:auto;color:var(--text-dim);transition:transform .3s}
+  .guide-chevron.open{transform:rotate(180deg)}
+  .guide-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
+  .guide-body.open{max-height:8000px}
+  .guide-content{padding:24px}
+
+  /* Steps */
+  .step{margin-bottom:28px}
+  .step-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;margin-bottom:10px}
+  .step-num.tg{background:var(--blue-dim);color:var(--blue)}
+  .step-num.email{background:var(--accent-dim);color:var(--accent)}
+  .step-num.cron{background:var(--gold-dim);color:var(--gold)}
+  .step-num.auction{background:var(--orange-dim);color:var(--orange)}
+  .step-title{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px}
+  .step p{font-size:13px;color:var(--text-muted);line-height:1.7;margin-bottom:8px}
+  .step code{font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--surface-raised);border:1px solid var(--border);padding:2px 7px;border-radius:4px;color:var(--accent)}
+  .step pre{background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto;margin:10px 0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.6;color:var(--text);white-space:pre}
+  .step .cost{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;padding:3px 10px;border-radius:4px;margin-top:4px}
+  .step .cost.free{background:var(--accent-dim);color:var(--accent)}
+  .step .cost.cheap{background:var(--gold-dim);color:var(--gold)}
+
+  @media(max-width:700px){
+    .bank-fields{grid-template-columns:1fr 1fr}
+    .bond-fields{grid-template-columns:1fr}
+    .container{padding:32px 16px 60px}
+    .input-wrapper input{font-size:22px}
+    .metric-value,.res-card .val{font-size:18px}
+    .summary-value{font-size:22px}
+  }
+  @media(max-width:500px){
+    .bank-fields{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ PAGE 1: LANDING ═══════════ -->
+<div class="page active" id="page1">
+<div class="container">
+  <header class="anim-down">
+    <div class="tag">Financial Simulator</div>
+    <h1>Grace Period <span>Arbitrage</span></h1>
+    <p class="subtitle">Model the return from deploying credit card limits into bonds during the interest-free grace period. Settle on day N−1, reinvest after T days.</p>
+  </header>
+  <div class="section anim-up">
+    <div class="section-header"><div class="section-number">1</div><div class="section-title">Assumptions</div></div>
+    <div class="input-grid">
+      <div class="input-group">
+        <label class="input-label">Total credit limit</label>
+        <div class="input-wrapper"><input type="text" id="creditLimit" value="500,000" inputmode="numeric"><span class="input-unit">UAH</span></div>
+        <div class="input-hint">Aggregate across all cards</div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Grace period</label>
+        <div class="input-wrapper"><input type="number" id="gracePeriod" value="60" min="1" max="365"><span class="input-unit">days</span></div>
+        <div class="input-hint">Interest-free window</div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">Bond interest rate</label>
+        <div class="input-wrapper"><input type="number" id="bondRate" value="15" step="0.1" min="0" max="100"><span class="input-unit">% p.a.</span></div>
+        <div class="input-hint">Annualized yield on OVDP / bonds</div>
+      </div>
+    </div>
+  </div>
+  <div class="section anim-up" style="animation-delay:.1s">
+    <div class="section-header"><div class="section-number">2</div><div class="section-title">Results — 365-Day Projection</div></div>
+    <div class="results-panel"><div class="results-body">
+      <div class="mechanism">
+        <div class="mechanism-title">Cycle mechanics</div>
+        <div class="mechanism-flow">
+          <div class="flow-step"><span class="num">1</span> Deploy limit → bonds</div><span class="flow-arrow">→</span>
+          <div class="flow-step"><span class="num">2</span> Hold <span id="holdDays">59</span> days</div><span class="flow-arrow">→</span>
+          <div class="flow-step"><span class="num">3</span> Settle on day <span id="settleDay">59</span></div><span class="flow-arrow">→</span>
+          <div class="flow-step"><span class="num">4</span> Reinvest in 3 days</div>
+        </div>
+      </div>
+      <div class="metrics-grid" id="metricsGrid"></div>
+      <div class="breakdown-header">
+        <span class="breakdown-title">Cycle-by-cycle breakdown</span>
+        <button class="breakdown-toggle" id="toggleTable">Show details</button>
+      </div>
+      <div class="table-wrap" id="tableWrap">
+        <table><thead><tr><th>#</th><th>Day start</th><th>Day end</th><th>Invest days</th><th>Principal</th><th>Interest</th><th>Cumulative</th></tr></thead><tbody id="tableBody"></tbody></table>
+      </div>
+      <div class="summary-bar" id="summaryBar"></div>
+    </div></div>
+    <div class="disclaimer"><strong>Disclaimer:</strong> Simplified model. Real factors include settlement timing, cash-advance vs purchase coding, minimum payments, credit score, tax, liquidity. Not financial advice.</div>
+  </div>
+  <div class="cta-section anim-up" style="animation-delay:.2s">
+    <button class="btn-cta" onclick="goToPage2()">Let's Start →</button>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════ PAGE 2: YOUR SIMULATION ═══════════ -->
+<div class="page" id="page2">
+<div class="container">
+  <a class="back-link" onclick="goToPage1()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    Back to overview
+  </a>
+  <header class="anim-down">
+    <div class="tag">Setup</div>
+    <h1>Your <span>Simulation</span></h1>
+    <p class="subtitle">Enter your actual cards, bonds, and grace period start dates. We'll build a real schedule with exact dates and amounts.</p>
+  </header>
+
+  <!-- Section 1: Contact -->
+  <div class="section anim-up">
+    <div class="section-header"><div class="section-number">1</div><div class="section-title">Contact Info</div></div>
+    <div class="form-card">
+      <div class="form-row">
+        <div class="field"><label>Your name / nickname</label><input type="text" id="userName" placeholder="e.g. Anton"></div>
+        <div class="field"><label>E-mail</label><input type="email" id="userEmail" placeholder="you@example.com"></div>
+        <div class="field"><label>Phone number</label><input type="tel" id="userPhone" placeholder="+380 XX XXX XX XX"></div>
+      </div>
+      <div class="checkbox-group" style="margin-top:20px">
+        <label class="checkbox-item">
+          <input type="checkbox" id="chkRemind">
+          <div class="check-box"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div><span class="check-label">Remind me to settle in grace period</span><span class="check-sublabel">Get alerts via Telegram & email 3 days before each deadline</span></div>
+        </label>
+        <label class="checkbox-item">
+          <input type="checkbox" id="chkSuggest">
+          <div class="check-box"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div><span class="check-label">Suggest investment instruments</span><span class="check-sublabel">Receive curated OVDP & bond picks matching your cycle lengths</span></div>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Banks -->
+  <div class="section anim-up" style="animation-delay:.1s">
+    <div class="section-header"><div class="section-number">2</div><div class="section-title">My Banks</div></div>
+    <div id="banksList"></div>
+    <button class="btn-add bank" onclick="addBank()"><span class="plus">+</span> Add a bank card</button>
+  </div>
+
+  <!-- Section 3: Bonds -->
+  <div class="section anim-up" style="animation-delay:.15s">
+    <div class="section-header"><div class="section-number">3</div><div class="section-title">Bonds</div></div>
+    <div id="bondsList"></div>
+    <button class="btn-add bond" onclick="addBond()"><span class="plus">+</span> Add a bond instrument</button>
+  </div>
+
+  <!-- Calculate -->
+  <div class="calc-section">
+    <button class="btn-calc" onclick="runCalculation()">Calculate Schedule →</button>
+  </div>
+
+  <!-- Section 4: Results -->
+  <div class="section" id="resultsSection" style="display:none;margin-top:48px">
+    <div class="section-header"><div class="section-number">4</div><div class="section-title">Results — Actual Amounts</div></div>
+    <div id="resSummary"></div>
+
+    <div style="margin-top:28px">
+      <div class="breakdown-header">
+        <span class="breakdown-title">Per-card breakdown</span>
+        <button class="toggle-btn" onclick="toggleWrap('perCardWrap',this)">Show details</button>
+      </div>
+      <div class="table-wrap" id="perCardWrap">
+        <table><thead><tr><th>Bank</th><th>Limit (UAH)</th><th>Grace</th><th>Cycles/yr</th><th>Days invested</th><th>Annual interest</th><th>Eff. yield</th></tr></thead><tbody id="perCardBody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- Section 5: Schedule -->
+    <div style="margin-top:36px">
+      <div class="section-header"><div class="section-number">5</div><div class="section-title">Repayment & Reinvestment Schedule</div></div>
+      <div id="scheduleTimeline"></div>
+      <div style="margin-top:12px">
+        <div class="breakdown-header">
+          <span class="breakdown-title">Full schedule table</span>
+          <button class="toggle-btn" onclick="toggleWrap('schedTableWrap',this)">Show table</button>
+        </div>
+        <div class="table-wrap" id="schedTableWrap">
+          <table><thead><tr><th>Date</th><th>Event</th><th>Bank / Bond</th><th>Amount (UAH)</th><th>Cycle #</th></tr></thead><tbody id="schedTableBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Integration Guide -->
+  <div class="section" style="margin-top:48px">
+    <div class="section-header"><div class="section-number">6</div><div class="section-title">Integration & Automation</div></div>
+
+    <div class="guide-panel" id="guidePanel1">
+      <div class="guide-header" onclick="toggleGuide('guide1')">
+        <div class="guide-icon" style="background:var(--blue-dim)"><svg viewBox="0 0 24 24" stroke="var(--blue)" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <span class="guide-label">Step 1 — Telegram Bot (Reminders)</span>
+        <svg class="guide-chevron" id="guide1Chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="guide-body" id="guide1Body"><div class="guide-content">
+        <div class="step">
+          <div class="step-num tg">1</div>
+          <div class="step-title">Create bot</div>
+          <p>Open Telegram → search <code>@BotFather</code> → <code>/newbot</code> → save the <code>BOT_TOKEN</code>.</p>
+        </div>
+        <div class="step">
+          <div class="step-num tg">2</div>
+          <div class="step-title">Get user's chat_id</div>
+          <p>Have the user send <code>/start</code> to your bot. Use <code>getUpdates</code> to capture their <code>chat_id</code>, or use a deep-link: <code>https://t.me/YourBot?start=USER_ID</code>.</p>
+        </div>
+        <div class="step">
+          <div class="step-num tg">3</div>
+          <div class="step-title">Send reminders</div>
+<pre>
+import requests, os
+TOKEN = os.environ["TG_BOT_TOKEN"]
+
+def remind(chat_id, bank, amount, due_date, days_left):
+    requests.post(
+        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+        json={
+            "chat_id": chat_id,
+            "parse_mode": "HTML",
+            "text": (
+                f"⏰ &lt;b&gt;Settlement Reminder&lt;/b&gt;\n"
+                f"Bank: {bank}\n"
+                f"Amount: ₴{amount:,.0f}\n"
+                f"Due: {due_date} ({days_left}d left)\n"
+                f"Settle to avoid interest!"
+            )
+        }
+    )
+</pre>
+          <div class="cost free">Free — unlimited messages</div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="guide-panel" style="margin-top:12px">
+      <div class="guide-header" onclick="toggleGuide('guide2')">
+        <div class="guide-icon" style="background:var(--accent-dim)"><svg viewBox="0 0 24 24" stroke="var(--accent)" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 7 12 13 2 7"/></svg></div>
+        <span class="guide-label">Step 2 — Email Notifications (Resend)</span>
+        <svg class="guide-chevron" id="guide2Chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="guide-body" id="guide2Body"><div class="guide-content">
+        <div class="step">
+          <div class="step-num email">1</div>
+          <div class="step-title">Sign up at resend.com</div>
+          <p>Free tier: 3,000 emails/month. Add and verify your domain (or use their onboarding domain for testing). Get your <code>RESEND_API_KEY</code>.</p>
+        </div>
+        <div class="step">
+          <div class="step-num email">2</div>
+          <div class="step-title">Send settlement & instrument emails</div>
+<pre>
+import resend, os
+resend.api_key = os.environ["RESEND_API_KEY"]
+
+def email_reminder(to, name, bank, amount, due):
+    resend.Emails.send({
+        "from": "alerts@yourdomain.com",
+        "to": to,
+        "subject": f"⏰ Settle {bank} by {due}",
+        "html": (
+            f"&lt;p&gt;Hi {name},&lt;/p&gt;"
+            f"&lt;p&gt;Reminder: repay &lt;b&gt;₴{amount:,.0f}&lt;/b&gt; "
+            f"to &lt;b&gt;{bank}&lt;/b&gt; by {due}.&lt;/p&gt;"
+        )
+    })
+</pre>
+          <div class="cost free">Free ≤ 3,000 emails/mo</div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="guide-panel" style="margin-top:12px">
+      <div class="guide-header" onclick="toggleGuide('guide3')">
+        <div class="guide-icon" style="background:var(--gold-dim)"><svg viewBox="0 0 24 24" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <span class="guide-label">Step 3 — Daily Cron + Serverless Function</span>
+        <svg class="guide-chevron" id="guide3Chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="guide-body" id="guide3Body"><div class="guide-content">
+        <div class="step">
+          <div class="step-num cron">1</div>
+          <div class="step-title">Cloudflare Worker (or Vercel Edge Function)</div>
+          <p>Free tier: 100K requests/day. Store user data in <code>Cloudflare KV</code> or <code>D1 SQLite</code> (free). The worker checks each user's schedule and sends notifications.</p>
+<pre>
+// Cloudflare Worker — wrangler.toml
+name = "grace-reminder"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "USERS"
+id = "your-kv-namespace-id"
+</pre>
+        </div>
+        <div class="step">
+          <div class="step-num cron">2</div>
+          <div class="step-title">Cron trigger</div>
+          <p>Option A: <code>cron-job.org</code> (free) — set a daily HTTP GET to your worker URL.<br>
+          Option B: Cloudflare Cron Triggers (built-in, free) — add to <code>wrangler.toml</code>:</p>
+<pre>
+[triggers]
+crons = ["0 8 * * *"]  # every day at 08:00 UTC
+</pre>
+        </div>
+        <div class="step">
+          <div class="step-num cron">3</div>
+          <div class="step-title">Worker logic</div>
+<pre>
+export default {
+  async scheduled(event, env) {
+    const users = await env.USERS.list();
+    const today = new Date();
+    
+    for (const key of users.keys) {
+      const user = JSON.parse(await env.USERS.get(key.name));
+      
+      for (const card of user.cards) {
+        const due = new Date(card.nextSettlement);
+        const daysLeft = Math.ceil((due - today) / 86400000);
+        
+        if (daysLeft <= 3 && daysLeft >= 0) {
+          await sendTelegram(user.chatId, card, daysLeft);
+          await sendEmail(user.email, user.name, card, daysLeft);
+        }
+      }
+    }
+  }
+};
+</pre>
+          <div class="cost free">Free — all tiers</div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="guide-panel" style="margin-top:12px">
+      <div class="guide-header" onclick="toggleGuide('guide4')">
+        <div class="guide-icon" style="background:var(--orange-dim)"><svg viewBox="0 0 24 24" stroke="var(--orange)" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div>
+        <span class="guide-label">Step 4 — Automatic OVDP Auction Data</span>
+        <svg class="guide-chevron" id="guide4Chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="guide-body" id="guide4Body"><div class="guide-content">
+        <div class="step">
+          <div class="step-num auction">1</div>
+          <div class="step-title">Source: National Bank of Ukraine (NBU)</div>
+          <p>The NBU publishes OVDP auction results at <code>bank.gov.ua</code>. Use their open data API to fetch the latest yields:</p>
+<pre>
+# NBU OVDP auction results API
+import requests
+from datetime import datetime
+
+def get_ovdp_auctions():
+    url = "https://bank.gov.ua/NBUStatService/v1/statdirectory/ovdp"
+    params = {
+        "period": "daily",
+        "date": datetime.now().strftime("%Y%m%d"),
+        "json": ""
+    }
+    r = requests.get(url, params=params)
+    return r.json()
+
+# Also: Ministry of Finance auction calendar
+# https://mof.gov.ua/en/ozdp — scrape or use RSS feed
+# for upcoming auction dates & planned volumes
+</pre>
+        </div>
+        <div class="step">
+          <div class="step-num auction">2</div>
+          <div class="step-title">Match bonds to user's cycle length</div>
+          <p>Filter OVDP by maturity ≤ user's grace period. Rank by effective yield. Include in the daily notification:</p>
+<pre>
+def suggest_bonds(grace_days, auctions):
+    # Filter bonds with maturity fitting the grace cycle
+    matching = [
+        a for a in auctions
+        if a.get("repayPeriod", 999) <= grace_days - 1
+    ]
+    # Sort by weighted average yield descending
+    matching.sort(
+        key=lambda a: a.get("auctionRate", 0),
+        reverse=True
+    )
+    return matching[:3]  # top 3 picks
+
+# Include in Telegram/email:
+# "🏦 Top OVDP picks for your 55-day cycle:
+#  1. UA4000204150 — 16.5% (42d maturity)
+#  2. UA4000218051 — 15.8% (28d maturity)"
+</pre>
+        </div>
+        <div class="step">
+          <div class="step-num auction">3</div>
+          <div class="step-title">Auction calendar alerts</div>
+          <p>Scrape or poll the Ministry of Finance auction calendar weekly. When a new auction is announced with maturity matching a user's cycle, push a Telegram notification:</p>
+<pre>
+def check_upcoming_auctions(env):
+    # Poll MoF auction calendar (weekly cron)
+    calendar = fetch_mof_calendar()
+    users = get_all_users(env)
+    
+    for auction in calendar:
+        for user in users:
+            for card in user["cards"]:
+                if auction["maturity_days"] <= card["grace"] - 1:
+                    notify(user, (
+                        f"📊 New OVDP auction on {auction['date']}\n"
+                        f"Maturity: {auction['maturity_days']}d "
+                        f"(fits your {card['bank']} cycle)\n"
+                        f"Expected yield: ~{auction['est_rate']}%"
+                    ))
+</pre>
+          <div class="cost free">Free — public data</div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="guide-panel" style="margin-top:12px">
+      <div class="guide-header" onclick="toggleGuide('guide5')">
+        <div class="guide-icon" style="background:rgba(255,255,255,.06)"><svg viewBox="0 0 24 24" stroke="var(--text-muted)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+        <span class="guide-label">Full Architecture & Cost Summary</span>
+        <svg class="guide-chevron" id="guide5Chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="guide-body" id="guide5Body"><div class="guide-content">
+        <div class="step">
+<pre>
+┌────────────────┐  daily 08:00    ┌──────────────────────┐
+│ Cloudflare     │ ──── cron ────→ │  Cloudflare Worker   │
+│ Cron Trigger   │                 │  (free tier)         │
+│ (built-in)     │                 └──────────┬───────────┘
+└────────────────┘                            │
+                          ┌───────────────────┼───────────────────┐
+                          │                   │                   │
+                          ▼                   ▼                   ▼
+                   ┌────────────┐    ┌──────────────┐    ┌──────────────┐
+                   │ Telegram   │    │ Resend API   │    │ NBU Open API │
+                   │ Bot API    │    │ (email)      │    │ (OVDP data)  │
+                   │ FREE       │    │ FREE ≤3k/mo  │    │ FREE         │
+                   └────────────┘    └──────────────┘    └──────────────┘
+                                                                │
+                                                         ┌──────────────┐
+                                                         │ Cloudflare   │
+                                                         │ KV / D1      │
+                                                         │ (user store) │
+                                                         │ FREE tier    │
+                                                         └──────────────┘
+</pre>
+          <p><strong>Total cost for ≤100 users: $0/month.</strong> At 1,000 users, only Resend crosses free tier (~$20/mo). Everything else stays free.</p>
+          <p style="margin-top:12px"><strong>Deployment steps:</strong></p>
+          <p>1. <code>npm install -g wrangler</code> → <code>wrangler login</code><br>
+          2. <code>wrangler init grace-reminder</code><br>
+          3. Add KV namespace: <code>wrangler kv:namespace create USERS</code><br>
+          4. Add secrets: <code>wrangler secret put TG_BOT_TOKEN</code> / <code>wrangler secret put RESEND_API_KEY</code><br>
+          5. Write worker logic (see Step 3 above)<br>
+          6. <code>wrangler deploy</code><br>
+          7. Done — daily reminders, email alerts, and OVDP suggestions all running.</p>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+function fmt(n,d=0){return n.toFixed(d).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+function parseNum(s){return parseFloat(String(s).replace(/,/g,''))||0}
+function fmtDate(d){return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r}
+function daysBetween(a,b){return Math.round((b-a)/86400000)}
+
+// ─── Navigation ───
+function goToPage2(){
+  document.getElementById('page1').classList.remove('active');
+  document.getElementById('page2').classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(!document.querySelectorAll('.bank-card').length) addBank();
+  if(!document.querySelectorAll('.bond-card').length) addBond();
+}
+function goToPage1(){
+  document.getElementById('page2').classList.remove('active');
+  document.getElementById('page1').classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ─── Page 1 Calculator ───
+const creditInput=document.getElementById('creditLimit');
+creditInput.addEventListener('input',function(){
+  const pos=this.selectionStart,old=this.value.length;
+  const raw=this.value.replace(/[^0-9]/g,'');
+  if(!raw){this.value='';calculate();return}
+  this.value=parseInt(raw).toLocaleString('en-US');
+  this.setSelectionRange(pos+(this.value.length-old),pos+(this.value.length-old));
+  calculate();
+});
+document.getElementById('gracePeriod').addEventListener('input',calculate);
+document.getElementById('bondRate').addEventListener('input',calculate);
+
+function calculate(){
+  const limit=parseNum(creditInput.value);
+  const grace=parseInt(document.getElementById('gracePeriod').value)||60;
+  const rate=parseFloat(document.getElementById('bondRate').value)||0;
+  const invest=grace-1,cycle=invest+3,daily=rate/100/365;
+  document.getElementById('holdDays').textContent=invest;
+  document.getElementById('settleDay').textContent=invest;
+  let day=0,cycles=[],cum=0;
+  while(day<365){const a=Math.min(invest,365-day);const i=limit*daily*a;cum+=i;cycles.push({num:cycles.length+1,dayStart:day,dayEnd:day+cycle-1,investDays:a,principal:limit,interest:i,cumulative:cum});day+=cycle}
+  const total=cum,eff=limit?(total/limit)*100:0,perC=cycles.length?total/cycles.length:0;
+  document.getElementById('metricsGrid').innerHTML=`
+    <div class="metric-card"><div class="metric-label">Full cycles</div><div class="metric-value">${cycles.length}</div><div class="metric-sub">${cycle} days/cycle</div></div>
+    <div class="metric-card"><div class="metric-label">Days invested</div><div class="metric-value">${cycles.reduce((s,c)=>s+c.investDays,0)}</div><div class="metric-sub">of 365</div></div>
+    <div class="metric-card"><div class="metric-label">Avg return/cycle</div><div class="metric-value accent">₴${fmt(perC)}</div><div class="metric-sub">${invest}d × ${rate}%</div></div>
+    <div class="metric-card"><div class="metric-label">Capital deployed</div><div class="metric-value">₴${fmt(limit)}</div><div class="metric-sub">0 own capital</div></div>`;
+  document.getElementById('tableBody').innerHTML=cycles.map(c=>`<tr><td>${c.num}</td><td>Day ${c.dayStart+1}</td><td>Day ${Math.min(c.dayEnd+1,365)}</td><td>${c.investDays}</td><td>₴${fmt(c.principal)}</td><td class="positive">+₴${fmt(c.interest,2)}</td><td class="positive">₴${fmt(c.cumulative,2)}</td></tr>`).join('');
+  document.getElementById('summaryBar').innerHTML=`
+    <div class="summary-left"><div class="summary-label">Total 365-day return</div><div class="summary-value">₴${fmt(total,2)}</div></div>
+    <div class="summary-right"><div class="summary-eff">${eff.toFixed(2)}%</div><div class="summary-eff-label">Effective yield</div></div>`;
+}
+document.getElementById('toggleTable').addEventListener('click',function(){
+  const w=document.getElementById('tableWrap');w.classList.toggle('open');
+  this.textContent=w.classList.contains('open')?'Hide details':'Show details';
+});
+calculate();
+
+// ─── Page 2: Banks ───
+let bankCount=0;
+function addBank(){
+  bankCount++;
+  const id=bankCount,div=document.createElement('div');
+  div.className='bank-card';div.id=`bank-${id}`;
+  const today=new Date().toISOString().split('T')[0];
+  div.innerHTML=`
+    <div class="card-header">
+      <span class="card-num">CARD #${id}</span>
+      <button class="btn-remove" onclick="removeEl('bank-${id}')">Remove</button>
+    </div>
+    <div class="bank-fields">
+      <div class="field"><label>Bank name</label><input type="text" class="b-name" placeholder="e.g. monobank"></div>
+      <div class="field"><label>Grace period (days)</label><input type="number" class="b-grace" value="55" min="1" max="365"></div>
+      <div class="field"><label>Grace start date</label><input type="date" class="b-date" value="${today}"></div>
+      <div class="field"><label>Credit limit (UAH)</label><input type="text" class="b-limit" placeholder="100,000" oninput="fmtInline(this)"></div>
+    </div>`;
+  document.getElementById('banksList').appendChild(div);
+}
+
+let bondCount=0;
+function addBond(){
+  bondCount++;
+  const id=bondCount,div=document.createElement('div');
+  div.className='bond-card';div.id=`bond-${id}`;
+  div.innerHTML=`
+    <div class="card-header">
+      <span class="card-num">BOND #${id}</span>
+      <button class="btn-remove" onclick="removeEl('bond-${id}')">Remove</button>
+    </div>
+    <div class="bond-fields">
+      <div class="field"><label>ISIN or Nickname</label><input type="text" class="d-isin" placeholder="e.g. UA4000204150"></div>
+      <div class="field"><label>Effective interest rate (%)</label><input type="number" class="d-rate" value="15" step="0.1" min="0" max="100"></div>
+    </div>`;
+  document.getElementById('bondsList').appendChild(div);
+}
+
+function removeEl(id){
+  const el=document.getElementById(id);
+  if(el){el.style.opacity='0';el.style.transform='scale(0.95)';setTimeout(()=>el.remove(),200)}
+}
+function fmtInline(input){
+  const pos=input.selectionStart,old=input.value.length;
+  const raw=input.value.replace(/[^0-9]/g,'');
+  if(!raw){input.value='';return}
+  input.value=parseInt(raw).toLocaleString('en-US');
+  input.setSelectionRange(pos+(input.value.length-old),pos+(input.value.length-old));
+}
+
+function toggleWrap(id,btn){
+  const w=document.getElementById(id);w.classList.toggle('open');
+  btn.textContent=w.classList.contains('open')?'Hide':'Show details';
+}
+function toggleGuide(id){
+  document.getElementById(id+'Body').classList.toggle('open');
+  document.getElementById(id+'Chevron').classList.toggle('open');
+}
+
+// ─── CALCULATION ENGINE ───
+function runCalculation(){
+  // Gather banks
+  const banks=[];
+  document.querySelectorAll('.bank-card').forEach(card=>{
+    const name=card.querySelector('.b-name').value||'Unnamed';
+    const grace=parseInt(card.querySelector('.b-grace').value)||55;
+    const dateStr=card.querySelector('.b-date').value;
+    const limit=parseNum(card.querySelector('.b-limit').value);
+    if(limit>0 && dateStr){
+      banks.push({name,grace,startDate:new Date(dateStr+'T00:00:00'),limit});
+    }
+  });
+
+  // Gather bonds — compute weighted average rate
+  const bonds=[];
+  document.querySelectorAll('.bond-card').forEach(card=>{
+    const isin=card.querySelector('.d-isin').value||'Bond';
+    const rate=parseFloat(card.querySelector('.d-rate').value)||0;
+    if(rate>0) bonds.push({isin,rate});
+  });
+
+  if(!banks.length){alert('Add at least one bank card with a limit and date.');return}
+  if(!bonds.length){alert('Add at least one bond with a rate.');return}
+
+  const avgRate=bonds.reduce((s,b)=>s+b.rate,0)/bonds.length;
+  const dailyRate=avgRate/100/365;
+  const reinvestGap=3;
+
+  // Per-card calculation: run cycles for 365 days from each card's start date
+  let allEvents=[];
+  let totalInterest=0;
+  let totalLimit=0;
+  const perCard=[];
+
+  banks.forEach(bank=>{
+    const investDays=bank.grace-1;
+    const cycleDays=investDays+reinvestGap;
+    let cycleNum=0;
+    let cardInterest=0;
+    let cardInvestDays=0;
+    const endDate=addDays(bank.startDate,365);
+    let cursor=new Date(bank.startDate);
+
+    while(cursor<endDate){
+      cycleNum++;
+      const buyDate=new Date(cursor);
+      const matureDate=addDays(buyDate,investDays);
+      const actualInvest=Math.min(investDays,daysBetween(buyDate,endDate));
+      const settleDate=addDays(buyDate,bank.grace-1);
+      const nextBuyDate=addDays(settleDate,reinvestGap);
+      const interest=bank.limit*dailyRate*actualInvest;
+      cardInterest+=interest;
+      cardInvestDays+=actualInvest;
+
+      // Events
+      allEvents.push({date:buyDate,type:'buy',label:`Buy bonds`,detail:`₴${fmt(bank.limit)} → ${bonds.map(b=>b.isin).join(', ')}`,bank:bank.name,amount:bank.limit,cycle:cycleNum});
+      if(matureDate<=endDate){
+        allEvents.push({date:matureDate,type:'mature',label:`Bonds mature`,detail:`+₴${fmt(interest,2)} interest earned`,bank:bank.name,amount:interest,cycle:cycleNum});
+      }
+      allEvents.push({date:settleDate<=endDate?settleDate:endDate,type:'repay',label:`Settle card`,detail:`Repay ₴${fmt(bank.limit)} to ${bank.name}`,bank:bank.name,amount:-bank.limit,cycle:cycleNum});
+      if(nextBuyDate<endDate){
+        // reinvest marker is the next buy
+      }
+
+      cursor=nextBuyDate;
+    }
+
+    const effYield=bank.limit?(cardInterest/bank.limit)*100:0;
+    perCard.push({name:bank.name,limit:bank.limit,grace:bank.grace,cycles:cycleNum,investDays:cardInvestDays,interest:cardInterest,effYield});
+    totalInterest+=cardInterest;
+    totalLimit+=bank.limit;
+  });
+
+  // Sort events by date
+  allEvents.sort((a,b)=>a.date-b.date);
+
+  // Show results
+  document.getElementById('resultsSection').style.display='block';
+
+  // Summary
+  const effTotal=totalLimit?(totalInterest/totalLimit)*100:0;
+  document.getElementById('resSummary').innerHTML=`
+    <div class="res-grid">
+      <div class="res-card"><div class="label">Total limit deployed</div><div class="val accent">₴${fmt(totalLimit)}</div><div class="sub">${banks.length} card(s)</div></div>
+      <div class="res-card"><div class="label">Avg bond rate</div><div class="val gold">${avgRate.toFixed(2)}%</div><div class="sub">${bonds.length} instrument(s)</div></div>
+      <div class="res-card"><div class="label">365-day interest</div><div class="val accent">₴${fmt(totalInterest,2)}</div><div class="sub">across all cards</div></div>
+      <div class="res-card"><div class="label">Effective annual yield</div><div class="val gold">${effTotal.toFixed(2)}%</div><div class="sub">on total deployed limit</div></div>
+    </div>`;
+
+  // Per card table
+  document.getElementById('perCardBody').innerHTML=perCard.map(c=>`
+    <tr>
+      <td>${c.name}</td>
+      <td>₴${fmt(c.limit)}</td>
+      <td>${c.grace}d</td>
+      <td>${c.cycles}</td>
+      <td>${c.investDays}</td>
+      <td class="positive">+₴${fmt(c.interest,2)}</td>
+      <td class="gold">${c.effYield.toFixed(2)}%</td>
+    </tr>`).join('');
+
+  // Timeline (first 30 events max for visual)
+  const timelineEvents=allEvents.slice(0,40);
+  document.getElementById('scheduleTimeline').innerHTML=timelineEvents.map((e,i)=>{
+    const isLast=i===timelineEvents.length-1;
+    const dotClass=e.type==='repay'?'repay':e.type==='buy'?'buy':'mature';
+    return `
+      <div class="schedule-event">
+        <div class="sched-line">
+          <div class="sched-dot ${dotClass}"></div>
+          ${!isLast?'<div class="sched-stem"></div>':''}
+        </div>
+        <div class="sched-content">
+          <div class="sched-date">${fmtDate(e.date)} · ${e.bank} · Cycle ${e.cycle}</div>
+          <div class="sched-title ${dotClass}">${e.label}</div>
+          <div class="sched-detail">${e.detail}</div>
+        </div>
+      </div>`;
+  }).join('')+(allEvents.length>40?`<div style="padding:12px 0 0 44px;font-size:12px;color:var(--text-dim)">… and ${allEvents.length-40} more events (see table below)</div>`:'');
+
+  // Full schedule table
+  document.getElementById('schedTableBody').innerHTML=allEvents.map(e=>{
+    const cls=e.type==='repay'?'negative':e.type==='buy'?'blue':'positive';
+    const prefix=e.type==='repay'?'−₴':e.type==='buy'?'₴':'+₴';
+    const val=Math.abs(e.amount);
+    return `<tr>
+      <td>${fmtDate(e.date)}</td>
+      <td class="${cls}">${e.label}</td>
+      <td>${e.bank}</td>
+      <td class="${cls}">${prefix}${fmt(val,e.type==='mature'?2:0)}</td>
+      <td>${e.cycle}</td>
+    </tr>`;
+  }).join('');
+
+  // Scroll to results
+  setTimeout(()=>{
+    document.getElementById('resultsSection').scrollIntoView({behavior:'smooth',block:'start'});
+  },100);
+}
+</script>
+</body>
+</html>
