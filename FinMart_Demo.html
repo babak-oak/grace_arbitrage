@@ -1,0 +1,3027 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>FinMart — Демо</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { height: 100%; width: 100%; }
+    body { display: flex; justify-content: center; background: #f0f2f5; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+// ============================================================
+// MOCK DATA & STUB APIs
+// ============================================================
+
+const MOCK_SECURITIES = [
+  { isin: "UA4000225890", name: "ОВДП 2027 UAH 15.5%", currency: "UAH", type: "ovdp", category: "government", faceValue: 1000, couponRate: 15.5, couponFrequency: "semi_annual", issueDate: "2024-06-15", maturityDate: "2027-06-15", nextCouponDate: "2026-06-15", bid: 985.30, ask: 1002.50, yieldToMaturity: 16.2, isActive: true },
+  { isin: "UA4000231456", name: "ОВДП 2028 UAH 17.0%", currency: "UAH", type: "ovdp", category: "government", faceValue: 1000, couponRate: 17.0, couponFrequency: "semi_annual", issueDate: "2025-01-10", maturityDate: "2028-01-10", nextCouponDate: "2026-07-10", bid: 1010.20, ask: 1028.80, yieldToMaturity: 16.8, isActive: true },
+  { isin: "UA4000218700", name: "ОВДП 2026 UAH 14.0%", currency: "UAH", type: "ovdp", category: "government", faceValue: 1000, couponRate: 14.0, couponFrequency: "semi_annual", issueDate: "2023-09-01", maturityDate: "2026-09-01", nextCouponDate: "2026-03-01", bid: 998.50, ask: 1005.00, yieldToMaturity: 14.3, isActive: true },
+  { isin: "UA4000240100", name: "Військова облігація 2027", currency: "UAH", type: "military_bond", category: "government", faceValue: 1000, couponRate: 19.5, couponFrequency: "quarterly", issueDate: "2025-03-01", maturityDate: "2027-03-01", nextCouponDate: "2026-06-01", bid: 1015.00, ask: 1035.00, yieldToMaturity: 18.9, isActive: true },
+  { isin: "UA4000240200", name: "Військова облігація 2028", currency: "UAH", type: "military_bond", category: "government", faceValue: 1000, couponRate: 18.0, couponFrequency: "quarterly", issueDate: "2025-06-01", maturityDate: "2028-06-01", nextCouponDate: "2026-06-01", bid: 1005.00, ask: 1022.00, yieldToMaturity: 17.5, isActive: true },
+  { isin: "XS2010030836", name: "ОВДП USD 2028 7.75%", currency: "USD", type: "ovdp", category: "government", faceValue: 1000, couponRate: 7.75, couponFrequency: "semi_annual", issueDate: "2024-03-15", maturityDate: "2028-03-15", nextCouponDate: "2026-09-15", bid: 945.00, ask: 968.00, yieldToMaturity: 9.1, isActive: true },
+  { isin: "XS2010030944", name: "ОВДП EUR 2027 6.5%", currency: "EUR", type: "ovdp", category: "government", faceValue: 1000, couponRate: 6.5, couponFrequency: "semi_annual", issueDate: "2024-05-01", maturityDate: "2027-05-01", nextCouponDate: "2026-05-01", bid: 960.00, ask: 982.00, yieldToMaturity: 8.3, isActive: true },
+  // Corporate bonds
+  { isin: "UA4000244100", name: "ДТЕК Енерго 2027 22%", currency: "UAH", type: "corporate", category: "corporate", issuerId: "dtek", issuerName: "ДТЕК Енерго", faceValue: 1000, couponRate: 22.0, couponFrequency: "quarterly", issueDate: "2024-09-01", maturityDate: "2027-09-01", nextCouponDate: "2026-06-01", bid: 1020.00, ask: 1045.00, yieldToMaturity: 21.1, issueVolume: 2000000000, offerDates: ["2025-09-01", "2026-09-01"], prospectusUrl: "https://dtek.com/prospectus/2027", isActive: true },
+  { isin: "UA4000244200", name: "МХП 2028 19.5%", currency: "UAH", type: "corporate", category: "corporate", issuerId: "mhp", issuerName: "МХП", faceValue: 1000, couponRate: 19.5, couponFrequency: "semi_annual", issueDate: "2025-02-15", maturityDate: "2028-02-15", nextCouponDate: "2026-08-15", bid: 995.00, ask: 1015.00, yieldToMaturity: 19.8, issueVolume: 1500000000, offerDates: ["2026-08-15"], prospectusUrl: "https://mhp.com.ua/prospectus/2028", isActive: true },
+  { isin: "UA4000244300", name: "Нафтогаз 2027 20%", currency: "UAH", type: "corporate", category: "corporate", issuerId: "naftogaz", issuerName: "Нафтогаз України", faceValue: 1000, couponRate: 20.0, couponFrequency: "semi_annual", issueDate: "2024-11-01", maturityDate: "2027-11-01", nextCouponDate: "2026-05-01", bid: 1008.00, ask: 1030.00, yieldToMaturity: 19.5, issueVolume: 5000000000, offerDates: ["2025-11-01", "2026-11-01"], prospectusUrl: "https://naftogaz.com/prospectus/2027", isActive: true },
+  { isin: "UA4000244400", name: "Укрзалізниця 2029 21%", currency: "UAH", type: "corporate", category: "corporate", issuerId: "ukrzal", issuerName: "Укрзалізниця", faceValue: 1000, couponRate: 21.0, couponFrequency: "quarterly", issueDate: "2025-04-01", maturityDate: "2029-04-01", nextCouponDate: "2026-07-01", bid: 990.00, ask: 1010.00, yieldToMaturity: 21.5, issueVolume: 3000000000, offerDates: ["2026-04-01", "2027-04-01", "2028-04-01"], prospectusUrl: "https://uz.gov.ua/prospectus/2029", isActive: true },
+  { isin: "XS2020040100", name: "ДТЕК Енерго USD 2028 10.5%", currency: "USD", type: "corporate", category: "corporate", issuerId: "dtek", issuerName: "ДТЕК Енерго", faceValue: 1000, couponRate: 10.5, couponFrequency: "semi_annual", issueDate: "2024-06-01", maturityDate: "2028-06-01", nextCouponDate: "2026-06-01", bid: 920.00, ask: 945.00, yieldToMaturity: 12.8, issueVolume: 500000000, offerDates: [], prospectusUrl: "https://dtek.com/prospectus/usd2028", isActive: true },
+];
+
+// Corporate issuer financial data
+const MOCK_ISSUERS = {
+  dtek: {
+    id: "dtek", name: "ДТЕК Енерго", sector: "Енергетика",
+    description: "Найбільша приватна енергетична компанія України. Управляє тепловими та відновлюваними електростанціями, видобутком вугілля та розподільчими мережами.",
+    officialReportUrl: "https://dtek.com/reports/2025-annual.pdf",
+    financials: {
+      years: [2023, 2024, 2025],
+      revenue: [98500, 112300, 125800],
+      costOfSales: [72100, 81200, 90500],
+      grossProfit: [26400, 31100, 35300],
+      operatingExpenses: [12300, 14100, 15800],
+      ebitda: [18200, 21500, 24600],
+      netIncome: [8100, 10200, 12500],
+      totalAssets: [185000, 198000, 215000],
+      currentAssets: [42000, 48000, 55000],
+      fixedAssets: [143000, 150000, 160000],
+      totalLiabilities: [120000, 125000, 130000],
+      currentLiabilities: [35000, 38000, 42000],
+      longTermDebt: [65000, 67000, 68000],
+      equity: [65000, 73000, 85000],
+      operatingCashFlow: [15200, 18500, 21000],
+      investingCashFlow: [-12000, -14000, -16000],
+      financingCashFlow: [-2500, -3000, -3500],
+      depreciation: [10100, 11300, 12100],
+      workingCapitalChange: [-2100, -1500, -800],
+    },
+    news: [
+      { date: "2026-03-28", title: "ДТЕК завершив реконструкцію Бурштинської ТЕС", body: "Потужність станції зросла на 15% після модернізації блоку №4." },
+      { date: "2026-03-15", title: "Fitch підтвердив рейтинг ДТЕК на рівні B-", body: "Прогноз стабільний, підтримка від диверсифікованого портфелю активів." },
+      { date: "2026-02-20", title: "ДТЕК залучив 500 млн грн через облігації", body: "Кошти спрямовані на відновлення енергетичної інфраструктури." },
+    ],
+  },
+  mhp: {
+    id: "mhp", name: "МХП", sector: "Агропромисловий",
+    description: "Один з найбільших виробників курятини у Європі та провідний агрохолдинг України. Вертикально інтегрована компанія з виробництва м'яса птиці.",
+    officialReportUrl: "https://mhp.com.ua/reports/2025-annual.pdf",
+    financials: {
+      years: [2023, 2024, 2025],
+      revenue: [65200, 72800, 81500],
+      costOfSales: [48100, 52500, 58200],
+      grossProfit: [17100, 20300, 23300],
+      operatingExpenses: [8200, 9100, 10200],
+      ebitda: [12500, 15200, 17800],
+      netIncome: [5800, 7500, 9200],
+      totalAssets: [95000, 105000, 118000],
+      currentAssets: [28000, 32000, 38000],
+      fixedAssets: [67000, 73000, 80000],
+      totalLiabilities: [55000, 58000, 62000],
+      currentLiabilities: [18000, 20000, 22000],
+      longTermDebt: [30000, 31000, 33000],
+      equity: [40000, 47000, 56000],
+      operatingCashFlow: [10500, 13200, 15500],
+      investingCashFlow: [-8000, -9500, -11000],
+      financingCashFlow: [-1800, -2200, -2800],
+      depreciation: [6700, 7700, 8600],
+      workingCapitalChange: [-1500, -1200, -900],
+    },
+    news: [
+      { date: "2026-03-25", title: "МХП відкрив новий переробний комплекс у Вінницькій області", body: "Інвестиції склали 1.2 млрд грн, створено 500 робочих місць." },
+      { date: "2026-03-10", title: "Експорт МХП до ЄС зріс на 25%", body: "Компанія нарощує поставки до Нідерландів та Німеччини." },
+    ],
+  },
+  naftogaz: {
+    id: "naftogaz", name: "Нафтогаз України", sector: "Нафта і газ",
+    description: "Найбільша державна нафтогазова компанія України. Здійснює видобуток, транспортування та постачання природного газу та нафти.",
+    officialReportUrl: "https://naftogaz.com/reports/2025-annual.pdf",
+    financials: {
+      years: [2023, 2024, 2025],
+      revenue: [320000, 285000, 310000],
+      costOfSales: [255000, 228000, 245000],
+      grossProfit: [65000, 57000, 65000],
+      operatingExpenses: [28000, 25000, 27000],
+      ebitda: [45000, 40000, 46000],
+      netIncome: [18000, 14000, 19000],
+      totalAssets: [520000, 540000, 565000],
+      currentAssets: [120000, 115000, 130000],
+      fixedAssets: [400000, 425000, 435000],
+      totalLiabilities: [350000, 355000, 360000],
+      currentLiabilities: [95000, 90000, 100000],
+      longTermDebt: [180000, 185000, 180000],
+      equity: [170000, 185000, 205000],
+      operatingCashFlow: [35000, 28000, 38000],
+      investingCashFlow: [-25000, -22000, -28000],
+      financingCashFlow: [-8000, -5000, -7000],
+      depreciation: [27000, 26000, 27000],
+      workingCapitalChange: [-5000, 2000, -3000],
+    },
+    news: [
+      { date: "2026-03-20", title: "Нафтогаз збільшив видобуток газу на 8%", body: "Завдяки введенню в експлуатацію нових свердловин на Полтавщині." },
+      { date: "2026-02-28", title: "Успішне розміщення облігацій на 5 млрд грн", body: "Попит перевищив пропозицію в 2.3 рази." },
+    ],
+  },
+  ukrzal: {
+    id: "ukrzal", name: "Укрзалізниця", sector: "Транспорт",
+    description: "Державна компанія, оператор залізничного транспорту України. Забезпечує пасажирські та вантажні перевезення по всій території країни.",
+    officialReportUrl: "https://uz.gov.ua/reports/2025-annual.pdf",
+    financials: {
+      years: [2023, 2024, 2025],
+      revenue: [85000, 92000, 105000],
+      costOfSales: [68000, 72000, 80000],
+      grossProfit: [17000, 20000, 25000],
+      operatingExpenses: [10000, 11000, 13000],
+      ebitda: [12000, 15000, 18500],
+      netIncome: [3000, 5000, 7500],
+      totalAssets: [280000, 295000, 310000],
+      currentAssets: [35000, 40000, 48000],
+      fixedAssets: [245000, 255000, 262000],
+      totalLiabilities: [195000, 200000, 205000],
+      currentLiabilities: [55000, 58000, 62000],
+      longTermDebt: [110000, 112000, 113000],
+      equity: [85000, 95000, 105000],
+      operatingCashFlow: [9000, 12000, 15500],
+      investingCashFlow: [-15000, -18000, -20000],
+      financingCashFlow: [5000, 5500, 4000],
+      depreciation: [9000, 10000, 11000],
+      workingCapitalChange: [-3000, -2000, -1500],
+    },
+    news: [
+      { date: "2026-03-18", title: "УЗ запустила швидкісний маршрут Київ-Львів за 4 години", body: "Новий Інтерсіті+ скоротив час подорожі на 1.5 години." },
+      { date: "2026-02-15", title: "Укрзалізниця отримала кредит ЄБРР на модернізацію", body: "150 млн EUR на оновлення рухомого складу та інфраструктури." },
+    ],
+  },
+};
+
+const MOCK_HOLDINGS = [
+  { holdingId: "h1", isin: "UA4000225890", quantity: 5, avgPurchasePrice: 1001.00, totalInterestEarned: 387.50, acquiredAt: "2025-09-15" },
+  { holdingId: "h2", isin: "UA4000240100", quantity: 10, avgPurchasePrice: 1030.00, totalInterestEarned: 975.00, acquiredAt: "2025-07-01" },
+  { holdingId: "h3", isin: "XS2010030836", quantity: 3, avgPurchasePrice: 955.00, totalInterestEarned: 116.25, acquiredAt: "2025-11-01" },
+  { holdingId: "h4", isin: "UA4000231456", quantity: 8, avgPurchasePrice: 1020.00, totalInterestEarned: 680.00, acquiredAt: "2025-10-20" },
+  { holdingId: "h5", isin: "UA4000244100", quantity: 5, avgPurchasePrice: 1035.00, totalInterestEarned: 275.00, acquiredAt: "2025-12-01" },
+  { holdingId: "h6", isin: "UA4000244300", quantity: 3, avgPurchasePrice: 1025.00, totalInterestEarned: 150.00, acquiredAt: "2026-01-15" },
+];
+
+const MOCK_TRANSACTIONS = [
+  { txId: "t1", type: "deposit", amount: 15000, currency: "UAH", isCreditFunded: true, drawdownDate: "2026-03-01", gracePeriodDays: 55, graceExpiryDate: "2026-04-25", status: "completed", createdAt: "2026-03-01T10:00:00Z" },
+  { txId: "t2", type: "deposit", amount: 3000, currency: "USD", isCreditFunded: false, status: "completed", createdAt: "2025-11-01T14:00:00Z" },
+  { txId: "t3", type: "deposit", amount: 10000, currency: "UAH", isCreditFunded: true, drawdownDate: "2026-02-15", gracePeriodDays: 62, graceExpiryDate: "2026-04-18", status: "completed", createdAt: "2026-02-15T09:30:00Z" },
+  { txId: "t4", type: "withdrawal", amount: 5000, currency: "UAH", isCreditFunded: false, status: "completed", createdAt: "2026-01-20T16:00:00Z" },
+];
+
+const MOCK_TRADES = [
+  { tradeId: "tr1", isin: "UA4000225890", side: "buy", quantity: 5, price: 1001.00, totalAmount: 5005.00, status: "settled", createdAt: "2025-09-15T11:00:00Z" },
+  { tradeId: "tr2", isin: "UA4000240100", side: "buy", quantity: 10, price: 1030.00, totalAmount: 10300.00, status: "settled", createdAt: "2025-07-01T13:30:00Z" },
+  { tradeId: "tr3", isin: "XS2010030836", side: "buy", quantity: 3, price: 955.00, totalAmount: 2865.00, status: "settled", createdAt: "2025-11-01T10:15:00Z" },
+  { tradeId: "tr4", isin: "UA4000231456", side: "buy", quantity: 8, price: 1020.00, totalAmount: 8160.00, status: "settled", createdAt: "2025-10-20T09:00:00Z" },
+  { tradeId: "tr5", isin: "UA4000244100", side: "buy", quantity: 5, price: 1035.00, totalAmount: 5175.00, status: "settled", createdAt: "2025-12-01T11:00:00Z" },
+  { tradeId: "tr6", isin: "UA4000244300", side: "buy", quantity: 3, price: 1025.00, totalAmount: 3075.00, status: "settled", createdAt: "2026-01-15T14:00:00Z" },
+];
+
+const MOCK_NOTIFICATIONS = [
+  { id: "n1", triggerType: "grace_expiry", title: "Грейс-період спливає!", body: "До закінчення грейс-періоду залишилось 3 дні. Розгляньте продаж для уникнення відсотків.", isRead: false, sentAt: "2026-03-25T08:00:00Z" },
+  { id: "n2", triggerType: "coupon_received", title: "Купон зараховано", body: "Отримано купонний платіж 975.00 ₴ за Військова облігація 2027.", isRead: false, sentAt: "2026-03-01T12:00:00Z" },
+  { id: "n3", triggerType: "yield_alert", title: "Зміна дохідності", body: "Дохідність ОВДП 2028 UAH 17.0% зросла на 25 б.п. Нова можливість!", isRead: true, sentAt: "2026-02-20T09:00:00Z" },
+  { id: "n4", triggerType: "order_confirmed", title: "Угоду виконано", body: "Купівля 8 шт. ОВДП 2028 UAH 17.0% за ціною 1020.00 ₴.", isRead: true, sentAt: "2025-10-20T09:01:00Z" },
+];
+
+const MOCK_ACCOUNT = {
+  balanceUah: 12450.00,
+  balanceUsd: 1135.00,
+  balanceEur: 0,
+  totalLifetimeEarnings: 2158.75,
+  currentResult: 1847.30,
+};
+
+// Monthly cash flow projection for bar chart
+const MOCK_MONTHLY_CASHFLOWS = [
+  { month: "2026-04", label: "Квіт 2026", settlements: 0, coupons: 0, gracePayments: 25000 },
+  { month: "2026-05", label: "Трав 2026", settlements: 0, coupons: 97.50 * 45.2 + 3000, gracePayments: 0 },
+  { month: "2026-06", label: "Черв 2026", settlements: 0, coupons: 4875 + 387.50 + 2750 + 275, gracePayments: 0 },
+  { month: "2026-07", label: "Лип 2026", settlements: 0, coupons: 680 + 1575, gracePayments: 0 },
+  { month: "2026-08", label: "Серп 2026", settlements: 0, coupons: 292.50, gracePayments: 0 },
+  { month: "2026-09", label: "Вер 2026", settlements: 5000, coupons: 116.25 * 41.5 + 2750 + 1100, gracePayments: 0 },
+  { month: "2026-10", label: "Жовт 2026", settlements: 0, coupons: 0, gracePayments: 0 },
+  { month: "2026-11", label: "Лист 2026", settlements: 0, coupons: 3000, gracePayments: 0 },
+  { month: "2026-12", label: "Груд 2026", settlements: 0, coupons: 4875 + 387.50 + 2750 + 275, gracePayments: 0 },
+  { month: "2027-01", label: "Січ 2027", settlements: 8000, coupons: 680, gracePayments: 0 },
+  { month: "2027-02", label: "Лют 2027", settlements: 0, coupons: 292.50, gracePayments: 0 },
+  { month: "2027-03", label: "Бер 2027", settlements: 10000, coupons: 4875 + 2750, gracePayments: 0 },
+];
+
+const MOCK_CASHFLOW_DETAILS = [
+  { date: "2026-04-18", type: "grace", label: "Грейс-період спливає", amount: 10000, currency: "UAH", isin: null },
+  { date: "2026-04-25", type: "grace", label: "Грейс-період спливає", amount: 15000, currency: "UAH", isin: null },
+  { date: "2026-05-01", type: "coupon", label: "Купон: ОВДП EUR 2027", amount: 97.50, currency: "EUR", isin: "XS2010030944" },
+  { date: "2026-05-01", type: "coupon", label: "Купон: Нафтогаз 2027", amount: 3000, currency: "UAH", isin: "UA4000244300" },
+  { date: "2026-06-01", type: "coupon", label: "Купон: Військова 2027", amount: 4875, currency: "UAH", isin: "UA4000240100" },
+  { date: "2026-06-01", type: "coupon", label: "Купон: ДТЕК 2027", amount: 2750, currency: "UAH", isin: "UA4000244100" },
+  { date: "2026-06-15", type: "coupon", label: "Купон: ОВДП 2027 UAH", amount: 387.50, currency: "UAH", isin: "UA4000225890" },
+  { date: "2026-07-01", type: "coupon", label: "Купон: Укрзалізниця 2029", amount: 1575, currency: "UAH", isin: "UA4000244400" },
+  { date: "2026-07-10", type: "coupon", label: "Купон: ОВДП 2028 UAH", amount: 680, currency: "UAH", isin: "UA4000231456" },
+  { date: "2026-09-01", type: "maturity", label: "Погашення: ОВДП 2026 UAH", amount: 5000, currency: "UAH", isin: "UA4000218700" },
+  { date: "2026-09-01", type: "coupon", label: "Купон: ДТЕК 2027", amount: 2750, currency: "UAH", isin: "UA4000244100" },
+  { date: "2026-09-15", type: "coupon", label: "Купон: ОВДП USD 2028", amount: 116.25, currency: "USD", isin: "XS2010030836" },
+  { date: "2027-01-10", type: "maturity", label: "Погашення: ОВДП 2028 UAH", amount: 8000, currency: "UAH", isin: "UA4000231456" },
+  { date: "2027-03-01", type: "maturity", label: "Погашення: Військова 2027", amount: 10000, currency: "UAH", isin: "UA4000240100" },
+];
+
+// Stub API
+const API = {
+  delay: (ms = 400) => new Promise(r => setTimeout(r, ms)),
+  auth: {
+    requestOtp: async (phone) => { await API.delay(800); return { success: true }; },
+    verifyOtp: async (phone, code) => { await API.delay(600); return { success: true, token: "mock-jwt-token" }; },
+  },
+  account: {
+    get: async () => { await API.delay(); return MOCK_ACCOUNT; },
+    getTransactions: async () => { await API.delay(); return MOCK_TRANSACTIONS; },
+  },
+  securities: {
+    list: async () => { await API.delay(); return MOCK_SECURITIES; },
+    get: async (isin) => { await API.delay(); return MOCK_SECURITIES.find(s => s.isin === isin); },
+  },
+  portfolio: {
+    get: async () => { await API.delay(); return { account: MOCK_ACCOUNT, holdings: MOCK_HOLDINGS }; },
+    getHoldings: async () => { await API.delay(); return MOCK_HOLDINGS; },
+  },
+  trade: {
+    buy: async (isin, qty) => { await API.delay(1000); return { success: true, tradeId: "tr-new-" + Date.now() }; },
+    sell: async (isin, qty) => { await API.delay(1000); return { success: true, tradeId: "tr-sell-" + Date.now() }; },
+    history: async () => { await API.delay(); return MOCK_TRADES; },
+  },
+  deposit: async (amount, currency, method, creditData) => { await API.delay(1200); return { success: true }; },
+  withdraw: async (amount, currency, destination) => { await API.delay(1200); return { success: true }; },
+  notifications: {
+    list: async () => { await API.delay(); return MOCK_NOTIFICATIONS; },
+    markRead: async (id) => { await API.delay(200); return { success: true }; },
+  },
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+const fmt = (n, decimals = 2) => n?.toLocaleString("uk-UA", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) ?? "—";
+const fmtCurrency = (n, cur = "UAH") => {
+  const symbols = { UAH: "₴", USD: "$", EUR: "€" };
+  return `${fmt(n)} ${symbols[cur] || cur}`;
+};
+const fmtDate = (d) => new Date(d).toLocaleDateString("uk-UA");
+const daysUntil = (d) => Math.ceil((new Date(d) - new Date()) / (1000 * 60 * 60 * 24));
+const fmtShort = (n) => {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + " млн";
+  if (n >= 1000) return (n / 1000).toFixed(0) + " тис";
+  return fmt(n, 0);
+};
+
+const getSecurityByIsin = (isin) => MOCK_SECURITIES.find(s => s.isin === isin);
+const isInPortfolio = (isin) => MOCK_HOLDINGS.some(h => h.isin === isin);
+const fxRates = { UAH: 1, USD: 41.5, EUR: 45.2 };
+
+// ============================================================
+// ICONS (inline SVG components)
+// ============================================================
+const Icon = ({ d, size = 20, color = "currentColor" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d={d} />
+  </svg>
+);
+
+const Icons = {
+  home: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",
+  chart: "M18 20V10 M12 20V4 M6 20v-6",
+  bag: "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z M3 6h18 M16 10a4 4 0 0 1-8 0",
+  bell: "M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0",
+  wallet: "M21 12V7H5a2 2 0 0 1 0-4h14v4 M21 12a2 2 0 0 0-2-2h-2a2 2 0 0 0 0 4h2a2 2 0 0 0 2-2z",
+  plus: "M12 5v14 M5 12h14",
+  minus: "M5 12h14",
+  arrow_up: "M12 19V5 M5 12l7-7 7 7",
+  arrow_down: "M12 5v14 M19 12l-7 7-7-7",
+  chevron_right: "M9 18l6-6-6-6",
+  chevron_left: "M15 18l-6-6 6-6",
+  shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  clock: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z M12 6v6l4 2",
+  check: "M20 6L9 17l-5-5",
+  x: "M18 6L6 18 M6 6l12 12",
+  card: "M1 4h22v16H1z M1 10h22",
+  send: "M22 2L11 13 M22 2l-7 20-4-9-9-4z",
+  user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+  settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  flag: "M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z M4 22v-7",
+  pie: "M21.21 15.89A10 10 0 1 1 8 2.83 M22 12A10 10 0 0 0 12 2v10z",
+  barChart: "M12 20V10 M18 20V4 M6 20v-6",
+  briefcase: "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16",
+  trendingUp: "M23 6l-9.5 9.5-5-5L1 18",
+  list: "M8 6h13 M8 12h13 M8 18h13 M3 6h.01 M3 12h.01 M3 18h.01",
+  externalLink: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6 M15 3h6v6 M10 14L21 3",
+  fileText: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8",
+  newspaper: "M19 20H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1 M19 20a2 2 0 0 0 2-2V9a1 1 0 0 0-1-1h-2",
+};
+
+// ============================================================
+// STYLES
+// ============================================================
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg-primary: #080d18;
+  --bg-secondary: #111827;
+  --bg-card: #152036;
+  --bg-card-hover: #1a2845;
+  --bg-input: #0c1220;
+  --border: #243352;
+  --border-light: #1a2845;
+  --text-primary: #f0f4fc;
+  --text-secondary: #8899b8;
+  --text-muted: #5a6a88;
+  --accent: #00E5A0;
+  --accent-hover: #00cc8e;
+  --accent-glow: rgba(0, 229, 160, 0.12);
+  --navy: #122044;
+  --green: #10b981;
+  --green-bg: rgba(16, 185, 129, 0.1);
+  --red: #ef4444;
+  --red-bg: rgba(239, 68, 68, 0.1);
+  --yellow: #f59e0b;
+  --yellow-bg: rgba(245, 158, 11, 0.1);
+  --blue: #3b82f6;
+  --blue-bg: rgba(59, 130, 246, 0.1);
+  --purple: #a855f7;
+  --purple-bg: rgba(168, 85, 247, 0.1);
+  --military: #d97706;
+  --military-bg: rgba(217, 119, 6, 0.08);
+  --font: 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body, #root {
+  font-family: var(--font);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg-primary);
+  position: relative;
+  overflow-x: hidden;
+  border-left: 1px solid var(--border-light);
+  border-right: 1px solid var(--border-light);
+}
+
+/* Onboarding */
+.onboarding {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  background: linear-gradient(170deg, #080d18 0%, #122044 50%, #080d18 100%);
+  position: relative;
+  overflow: hidden;
+}
+.onboarding::before {
+  content: '';
+  position: absolute;
+  top: -200px; right: -200px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(0,229,160,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.onboarding-logo {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -1.5px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.onboarding-sub {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-bottom: 48px;
+  text-align: center;
+  line-height: 1.5;
+}
+.onboarding-form {
+  width: 100%;
+  max-width: 340px;
+}
+.input-group {
+  margin-bottom: 16px;
+}
+.input-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.input-group input, .input-group select {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input-group input:focus, .input-group select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.input-group input::placeholder {
+  color: var(--text-muted);
+}
+.btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--text-secondary); }
+.btn-sm { padding: 8px 16px; font-size: 13px; width: auto; }
+.btn-green { background: var(--green); color: white; }
+.btn-green:hover { background: #059669; }
+.btn-red { background: var(--red); color: white; }
+.btn-red:hover { background: #dc2626; }
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  background: rgba(10, 14, 23, 0.92);
+  backdrop-filter: blur(12px);
+  z-index: 100;
+  border-bottom: 1px solid var(--border-light);
+}
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.header-logo {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.header-badge {
+  position: relative;
+}
+.header-badge .dot {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 8px; height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  border: 2px solid var(--bg-primary);
+}
+.header-back {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+/* Bottom nav */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  display: flex;
+  background: rgba(17, 24, 39, 0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-light);
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  z-index: 100;
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: color 0.2s;
+  position: relative;
+}
+.nav-item.active { color: var(--accent); }
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 24px; height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* Page content */
+.page { padding: 0 20px 100px; }
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+  padding: 20px;
+  margin-bottom: 12px;
+  transition: background 0.2s;
+}
+.card-clickable { cursor: pointer; }
+.card-clickable:hover { background: var(--bg-card-hover); }
+
+/* Summary cards grid */
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.summary-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+  padding: 16px;
+}
+.summary-card.full { grid-column: 1 / -1; }
+.summary-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.summary-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  font-family: var(--font-mono);
+}
+.summary-value.green { color: var(--green); }
+.summary-value.sm { font-size: 16px; }
+
+/* Section titles */
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 24px 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Security list */
+.security-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.security-row:hover { background: var(--bg-card-hover); }
+.security-info { flex: 1; min-width: 0; }
+.security-name {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.security-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+}
+.security-right { text-align: right; }
+.security-yield {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--green);
+  font-family: var(--font-mono);
+}
+.security-price {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Tags */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.tag-military { background: var(--military-bg); color: var(--military); }
+.tag-uah { background: var(--accent-glow); color: var(--accent); }
+.tag-usd { background: var(--green-bg); color: var(--green); }
+.tag-eur { background: var(--yellow-bg); color: var(--yellow); }
+.tag-corp { background: var(--blue-bg); color: var(--blue); }
+
+/* Notification items */
+.notif-item {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.notif-item:hover { background: var(--bg-card-hover); }
+.notif-item.unread { background: rgba(0, 229, 160, 0.04); }
+.notif-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+.notif-dot.read { background: transparent; }
+.notif-body { flex: 1; }
+.notif-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.notif-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+.notif-time { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+/* Detail page */
+.detail-hero {
+  text-align: center;
+  padding: 32px 20px 24px;
+  background: linear-gradient(180deg, rgba(0,229,160,0.05) 0%, transparent 100%);
+}
+.detail-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.detail-isin { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
+.detail-yield-big {
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--green);
+  font-family: var(--font-mono);
+  margin: 16px 0 4px;
+  letter-spacing: -2px;
+}
+.detail-yield-label { font-size: 12px; color: var(--text-secondary); }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border-light);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: 16px 20px;
+}
+.detail-cell {
+  background: var(--bg-card);
+  padding: 14px 16px;
+}
+.detail-cell-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.detail-cell-value { font-size: 14px; font-weight: 600; font-family: var(--font-mono); }
+
+/* Trade panel */
+.trade-panel {
+  padding: 20px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-light);
+  position: sticky;
+  bottom: 0;
+}
+.trade-actions { display: flex; gap: 12px; }
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 200;
+}
+.modal {
+  width: 100%;
+  max-width: 430px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 24px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+.modal-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+
+/* Cashflow timeline */
+.cf-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+  align-items: flex-start;
+}
+.cf-date {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  min-width: 80px;
+  padding-top: 2px;
+}
+.cf-info { flex: 1; }
+.cf-label { font-size: 13px; font-weight: 500; }
+.cf-amount { font-size: 14px; font-weight: 700; color: var(--green); font-family: var(--font-mono); margin-top: 2px; }
+.cf-type-coupon { border-left: 3px solid var(--green); padding-left: 12px; }
+.cf-type-maturity { border-left: 3px solid var(--accent); padding-left: 12px; }
+.cf-type-grace { border-left: 3px solid var(--red); padding-left: 12px; }
+
+/* Holding detail row */
+.holding-row {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer;
+}
+.holding-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.holding-name { font-size: 14px; font-weight: 600; }
+.holding-qty { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.holding-pnl { text-align: right; }
+.holding-pnl-value { font-size: 14px; font-weight: 700; font-family: var(--font-mono); }
+.holding-pnl-value.positive { color: var(--green); }
+.holding-pnl-value.negative { color: var(--red); }
+.holding-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Grace period alert */
+.grace-alert {
+  background: var(--red-bg);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.grace-alert-text { flex: 1; }
+.grace-alert-title { font-size: 13px; font-weight: 600; color: var(--red); }
+.grace-alert-body { font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+
+/* Filters */
+.filters {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  overflow-x: auto;
+}
+.filter-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.filter-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+/* Success animation */
+@keyframes checkmark {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.success-check {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  animation: checkmark 0.5s ease-out;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-in { animation: fadeIn 0.3s ease-out; }
+.modal { animation: slideUp 0.3s ease-out; }
+
+/* Toggle */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+.toggle-label { font-size: 14px; }
+.toggle {
+  width: 44px; height: 24px;
+  border-radius: 12px;
+  background: var(--border);
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+}
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(20px); }
+
+.loading-spinner {
+  width: 24px; height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Mini price chart placeholder */
+.mini-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 24px;
+}
+.mini-chart-bar {
+  width: 3px;
+  background: var(--accent);
+  border-radius: 1px;
+  opacity: 0.6;
+}
+
+/* Pie chart */
+.pie-chart-container {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+.pie-chart-container svg {
+  filter: drop-shadow(0 2px 12px rgba(0,0,0,0.25));
+}
+.pie-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 8px 20px 0;
+  justify-content: center;
+}
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+.pie-legend-item:hover {
+  background: var(--bg-card-hover);
+}
+.pie-legend-item.active {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+.pie-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: opacity 0.3s;
+}
+.pie-legend-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.pie-legend-value {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  transition: opacity 0.3s;
+}
+
+.demo-banner {
+  background: linear-gradient(90deg, var(--yellow-bg), transparent);
+  border-bottom: 1px solid rgba(245,158,11,0.2);
+  padding: 6px 20px;
+  font-size: 11px;
+  color: var(--yellow);
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Bar chart styles */
+.bar-chart-container {
+  padding: 16px 0;
+}
+.bar-chart-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 180px;
+  padding: 0 4px;
+  border-bottom: 1px solid var(--border-light);
+}
+.bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  justify-content: flex-end;
+  cursor: pointer;
+}
+.bar-stack {
+  width: 100%;
+  max-width: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.bar-segment {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: opacity 0.2s;
+}
+.bar-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+.bar-chart-legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding: 12px 0 0;
+}
+.bar-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.bar-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Yield curve chart */
+.yield-curve-container {
+  padding: 16px;
+  position: relative;
+}
+
+/* Securities table */
+.sec-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.sec-table th {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 8px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.sec-table td {
+  font-size: 12px;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--border-light);
+  font-family: var(--font-mono);
+}
+.sec-table tr:hover td {
+  background: var(--bg-card-hover);
+}
+.bid-link {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+}
+.bid-link:hover {
+  text-decoration: underline;
+}
+.bid-inactive {
+  color: var(--text-secondary);
+}
+.ask-link {
+  color: var(--text-secondary);
+}
+
+/* Tab switcher */
+.tab-switcher {
+  display: flex;
+  gap: 0;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  margin-bottom: 16px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+.tab-btn.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+/* Issuer page */
+.issuer-section {
+  margin-bottom: 20px;
+}
+.issuer-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Financial table */
+.fin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.fin-table th {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: right;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.fin-table th:first-child { text-align: left; }
+.fin-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-light);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+.fin-table td:first-child {
+  text-align: left;
+  font-family: var(--font);
+  color: var(--text-secondary);
+}
+.fin-table tr.highlight td {
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+}
+
+/* News items */
+.news-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.news-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-bottom: 4px;
+}
+.news-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.news-body {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Clickable title */
+.clickable-title {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.clickable-title:hover {
+  color: var(--accent);
+}
+`;
+
+// ============================================================
+// FINMART LOGO COMPONENT
+// ============================================================
+const FinMartLogo = ({ size = 28, showText = true, textColor = "var(--text-primary)" }) => {
+  const iconSize = size;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <svg width={iconSize} height={iconSize} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="100" height="100" rx="24" fill="#122044"/>
+        <path d="M20 16 L20 84" stroke="#00E5A0" strokeWidth="8" strokeLinecap="square" fill="none"/>
+        <path d="M20 16 L44 16" stroke="#00E5A0" strokeWidth="8" strokeLinecap="square" fill="none"/>
+        <path d="M20 46 L38 46" stroke="#00E5A0" strokeWidth="8" strokeLinecap="square" fill="none"/>
+        <path d="M54 62 L67 42 L80 62" stroke="#00E5A0" strokeWidth="4.5" strokeLinecap="square" strokeLinejoin="miter" fill="none"/>
+        <path d="M54 51 L67 31 L80 51" stroke="#00E5A0" strokeWidth="4.5" strokeLinecap="square" strokeLinejoin="miter" fill="none"/>
+        <path d="M54 40 L67 20 L80 40" stroke="#00E5A0" strokeWidth="4.5" strokeLinecap="square" strokeLinejoin="miter" fill="none"/>
+        <path d="M67 68 L67 84" stroke="#00E5A0" strokeWidth="4.5" strokeLinecap="square" fill="none"/>
+      </svg>
+      {showText && (
+        <span style={{ fontSize: size * 0.7, fontWeight: 700, letterSpacing: -0.5, color: textColor }}>
+          <span style={{ fontWeight: 700 }}>Fin</span><span style={{ fontWeight: 400 }}>Mart</span>
+        </span>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// MINI CHART COMPONENT
+// ============================================================
+const MiniChart = () => {
+  const bars = useMemo(() => Array.from({length: 12}, () => 6 + Math.random() * 18), []);
+  return (
+    <div className="mini-chart">
+      {bars.map((h, i) => <div key={i} className="mini-chart-bar" style={{ height: `${h}px` }} />)}
+    </div>
+  );
+};
+
+// ============================================================
+// PORTFOLIO PIE CHART COMPONENT (with monetary + % labels on slices)
+// ============================================================
+const PIE_COLORS = {
+  "Облігації UAH": "#00E5A0",
+  "Облігації USD": "#3b82f6",
+  "Облігації EUR": "#f59e0b",
+  "Нараховані %":  "#a855f7",
+  "Кеш":           "#64748b",
+};
+
+function PortfolioPieChart({ holdings, account, portfolioValuation, navigate, onSliceClick, onTitleClick }) {
+  const [selected, setSelected] = useState(null);
+
+  const totalAccruedInterest = holdings.reduce((s, h) => {
+    const sec = getSecurityByIsin(h.isin);
+    if (!sec) return s;
+    const daysSinceCoupon = Math.max(1, Math.floor((new Date() - new Date(sec.issueDate)) / (1000*60*60*24)) % (sec.couponFrequency === "quarterly" ? 90 : 180));
+    const dailyCoupon = (sec.couponRate / 100 * sec.faceValue) / 365;
+    return s + dailyCoupon * daysSinceCoupon * h.quantity * (fxRates[sec.currency] || 1);
+  }, 0);
+
+  const totalCashUAH = account.balanceUah + account.balanceUsd * fxRates.USD + account.balanceEur * fxRates.EUR;
+
+  const sliceData = [];
+  if (portfolioValuation.UAH) sliceData.push({ key: "Облігації UAH", value: portfolioValuation.UAH.marketValue, currency: "UAH" });
+  if (portfolioValuation.USD) sliceData.push({ key: "Облігації USD", value: portfolioValuation.USD.marketValue * fxRates.USD, currency: "USD" });
+  if (portfolioValuation.EUR) sliceData.push({ key: "Облігації EUR", value: portfolioValuation.EUR.marketValue * fxRates.EUR, currency: "EUR" });
+  sliceData.push({ key: "Нараховані %", value: totalAccruedInterest, currency: null });
+  sliceData.push({ key: "Кеш", value: totalCashUAH, currency: null });
+
+  const grandTotal = sliceData.reduce((s, d) => s + d.value, 0);
+
+  const cx = 140, cy = 140, outerR = 120, innerR = 78, svgSize = 280;
+
+  const arcs = useMemo(() => {
+    let cumAngle = -90;
+    return sliceData.map((slice) => {
+      const pct = grandTotal > 0 ? slice.value / grandTotal : 0;
+      const angle = pct * 360;
+      const startAngle = cumAngle;
+      const endAngle = cumAngle + angle;
+      cumAngle = endAngle;
+      return { ...slice, pct, startAngle, endAngle };
+    });
+  }, [sliceData, grandTotal]);
+
+  const describeArc = (startAngle, endAngle, outerRadius, innerRadius) => {
+    const toRad = (a) => (a * Math.PI) / 180;
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+    const sx1 = cx + outerRadius * Math.cos(toRad(startAngle));
+    const sy1 = cy + outerRadius * Math.sin(toRad(startAngle));
+    const sx2 = cx + outerRadius * Math.cos(toRad(endAngle));
+    const sy2 = cy + outerRadius * Math.sin(toRad(endAngle));
+    const sx3 = cx + innerRadius * Math.cos(toRad(endAngle));
+    const sy3 = cy + innerRadius * Math.sin(toRad(endAngle));
+    const sx4 = cx + innerRadius * Math.cos(toRad(startAngle));
+    const sy4 = cy + innerRadius * Math.sin(toRad(startAngle));
+    return `M ${sx1} ${sy1} A ${outerRadius} ${outerRadius} 0 ${largeArc} 1 ${sx2} ${sy2} L ${sx3} ${sy3} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${sx4} ${sy4} Z`;
+  };
+
+  const handleSliceClick = (key) => {
+    setSelected(prev => prev === key ? null : key);
+    if (onSliceClick) onSliceClick(key);
+  };
+
+  const handleCenterClick = () => {
+    setSelected(null);
+  };
+
+  const getFilteredHoldings = () => {
+    if (selected === null) return holdings;
+    if (selected === "Кеш") return "cash";
+    if (selected === "Нараховані %") return "accrued";
+    const curMap = { "Облігації UAH": "UAH", "Облігації USD": "USD", "Облігації EUR": "EUR" };
+    const cur = curMap[selected];
+    return holdings.filter(h => {
+      const sec = getSecurityByIsin(h.isin);
+      return sec && sec.currency === cur;
+    });
+  };
+
+  const filteredHoldings = getFilteredHoldings();
+  const selectedSlice = selected ? arcs.find(a => a.key === selected) : null;
+
+  // Calculate label position on each slice
+  const getSliceLabel = (arc) => {
+    if (arc.pct < 0.04) return null; // Skip labels for very small slices
+    const midAngle = (arc.startAngle + arc.endAngle) / 2;
+    const labelR = (outerR + innerR) / 2;
+    const toRad = (a) => (a * Math.PI) / 180;
+    const lx = cx + labelR * Math.cos(toRad(midAngle));
+    const ly = cy + labelR * Math.sin(toRad(midAngle));
+    return { x: lx, y: ly, pct: arc.pct, value: arc.value };
+  };
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      {/* Donut chart */}
+      <div className="pie-chart-container">
+        <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`}>
+          {arcs.map((arc, i) => {
+            if (arc.pct <= 0) return null;
+            const isSelected = selected === arc.key;
+            const isOther = selected && !isSelected;
+            const midAngle = (arc.startAngle + arc.endAngle) / 2;
+            const nudge = isSelected ? 6 : 0;
+            const dx = nudge * Math.cos(midAngle * Math.PI / 180);
+            const dy = nudge * Math.sin(midAngle * Math.PI / 180);
+            return (
+              <path
+                key={arc.key}
+                d={describeArc(arc.startAngle, arc.endAngle - 0.5, outerR, innerR)}
+                fill={PIE_COLORS[arc.key]}
+                opacity={isOther ? 0.25 : 1}
+                style={{
+                  cursor: "pointer",
+                  transform: `translate(${dx}px, ${dy}px)`,
+                  transition: "all 0.3s ease",
+                  filter: isSelected ? `drop-shadow(0 0 8px ${PIE_COLORS[arc.key]}80)` : "none",
+                }}
+                onClick={() => handleSliceClick(arc.key)}
+              />
+            );
+          })}
+          {/* Monetary + % labels on slices */}
+          {arcs.map((arc) => {
+            const label = getSliceLabel(arc);
+            if (!label) return null;
+            const isOther = selected && selected !== arc.key;
+            return (
+              <g key={`label-${arc.key}`} style={{ pointerEvents: "none", opacity: isOther ? 0.2 : 1, transition: "opacity 0.3s" }}>
+                <text x={label.x} y={label.y - 5} textAnchor="middle" fill="white" style={{ fontSize: 9, fontWeight: 700, fontFamily: "var(--font-mono)", textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>
+                  {fmtShort(label.value)}
+                </text>
+                <text x={label.x} y={label.y + 7} textAnchor="middle" fill="rgba(255,255,255,0.8)" style={{ fontSize: 8, fontWeight: 500, fontFamily: "var(--font-mono)", textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>
+                  {fmt(label.pct * 100, 1)}%
+                </text>
+              </g>
+            );
+          })}
+          {/* Center clickable area */}
+          <circle cx={cx} cy={cy} r={innerR - 4} fill="transparent" style={{ cursor: "pointer" }} onClick={handleCenterClick} />
+          {/* Center text */}
+          <text x={cx} y={cy - 14} textAnchor="middle" fill="var(--text-muted)" style={{ fontSize: 11, fontFamily: "var(--font)" }}>
+            {selected || "Загалом"}
+          </text>
+          <text x={cx} y={cy + 10} textAnchor="middle" fill="var(--text-primary)" style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+            {fmt(selected ? (selectedSlice?.value || 0) : grandTotal, 0)}
+          </text>
+          <text x={cx} y={cy + 28} textAnchor="middle" fill="var(--text-muted)" style={{ fontSize: 12, fontFamily: "var(--font)" }}>
+            ₴
+          </text>
+        </svg>
+      </div>
+
+      {/* Legend */}
+      <div className="pie-legend">
+        {arcs.map(arc => {
+          if (arc.pct <= 0) return null;
+          const isSelected = selected === arc.key;
+          return (
+            <div
+              key={arc.key}
+              className={`pie-legend-item ${isSelected ? 'active' : ''}`}
+              onClick={() => handleSliceClick(arc.key)}
+            >
+              <div className="pie-legend-dot" style={{ background: PIE_COLORS[arc.key], opacity: (selected && !isSelected) ? 0.3 : 1 }} />
+              <div className="pie-legend-label">{arc.key}</div>
+              <div className="pie-legend-value" style={{ opacity: (selected && !isSelected) ? 0.3 : 1 }}>
+                {fmt(arc.pct * 100, 1)}%
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Clickable title -> all assets list */}
+      <div className="section-title clickable-title" style={{ marginTop: 16 }} onClick={onTitleClick}>
+        {selected === null && "Усі активи ›"}
+        {selected === "Кеш" && "Грошові кошти"}
+        {selected === "Нараховані %" && "Нараховані відсотки"}
+        {selected && selected.startsWith("Облігації") && selected}
+      </div>
+
+      {filteredHoldings === "cash" ? (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>UAH</span>
+            <span style={{ fontWeight: 700, fontFamily: "var(--font-mono)" }}>{fmt(account.balanceUah)} ₴</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>USD</span>
+            <span style={{ fontWeight: 700, fontFamily: "var(--font-mono)" }}>${fmt(account.balanceUsd)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>EUR</span>
+            <span style={{ fontWeight: 700, fontFamily: "var(--font-mono)" }}>€{fmt(account.balanceEur)}</span>
+          </div>
+        </div>
+      ) : filteredHoldings === "accrued" ? (
+        <div className="card">
+          {holdings.map(h => {
+            const sec = getSecurityByIsin(h.isin);
+            if (!sec) return null;
+            const daysSinceCoupon = Math.max(1, Math.floor((new Date() - new Date(sec.issueDate)) / (1000*60*60*24)) % (sec.couponFrequency === "quarterly" ? 90 : 180));
+            const dailyCoupon = (sec.couponRate / 100 * sec.faceValue) / 365;
+            const accrued = dailyCoupon * daysSinceCoupon * h.quantity;
+            const sym = sec.currency === "UAH" ? "₴" : sec.currency === "USD" ? "$" : "€";
+            return (
+              <div key={h.holdingId} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-light)" }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{sec.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{daysSinceCoupon} днів × {h.quantity} шт.</div>
+                </div>
+                <div style={{ fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--green)", alignSelf: "center" }}>
+                  +{fmt(accrued)} {sym}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        (filteredHoldings || []).map(h => {
+          const sec = getSecurityByIsin(h.isin);
+          if (!sec) return null;
+          const unrealized = (sec.bid - h.avgPurchasePrice) * h.quantity;
+          const sym = sec.currency === "UAH" ? "₴" : sec.currency === "USD" ? "$" : "€";
+          return (
+            <div className="holding-row" key={h.holdingId} onClick={() => navigate("security", sec.isin)}>
+              <div className="holding-top">
+                <div>
+                  <div className="holding-name">
+                    {sec.type === "military_bond" && <span className="tag tag-military" style={{ marginRight: 6 }}>ВО</span>}
+                    {sec.type === "corporate" && <span className="tag tag-corp" style={{ marginRight: 6 }}>Корп</span>}
+                    {sec.name}
+                  </div>
+                  <div className="holding-qty">{h.quantity} шт. × {fmt(h.avgPurchasePrice)} {sym}</div>
+                </div>
+                <div className="holding-pnl">
+                  <div className={`holding-pnl-value ${unrealized >= 0 ? 'positive' : 'negative'}`}>
+                    {unrealized >= 0 ? '+' : ''}{fmt(unrealized)} {sym}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                    Купон: +{fmt(h.totalInterestEarned)} {sym}
+                  </div>
+                </div>
+              </div>
+              <div className="holding-bottom">
+                <span>Bid: {fmt(sec.bid)}</span>
+                <span>Ask: {fmt(sec.ask)}</span>
+                <span>YTM: {fmt(sec.yieldToMaturity, 1)}%</span>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// BAR CHART COMPONENT for Cash Flows
+// ============================================================
+function CashFlowBarChart({ data, onBarClick }) {
+  const maxVal = Math.max(...data.map(d => d.settlements + d.coupons + d.gracePayments), 1);
+
+  return (
+    <div className="bar-chart-container">
+      <div className="bar-chart-row">
+        {data.map((d, i) => {
+          const settleH = (d.settlements / maxVal) * 150;
+          const couponH = (d.coupons / maxVal) * 150;
+          const graceH = (d.gracePayments / maxVal) * 150;
+          return (
+            <div className="bar-group" key={d.month} onClick={() => onBarClick && onBarClick(d.month)}>
+              <div className="bar-stack">
+                {graceH > 0 && (
+                  <div className="bar-segment" style={{
+                    height: graceH,
+                    background: `repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(239,68,68,0.3) 2px, rgba(239,68,68,0.3) 4px)`,
+                    border: "1px dashed rgba(239,68,68,0.4)",
+                    borderRadius: "3px 3px 0 0",
+                  }} />
+                )}
+                {couponH > 0 && (
+                  <div className="bar-segment" style={{ height: couponH, background: "var(--green)", borderRadius: graceH > 0 ? 0 : "3px 3px 0 0" }} />
+                )}
+                {settleH > 0 && (
+                  <div className="bar-segment" style={{ height: settleH, background: "var(--accent)", borderRadius: (couponH > 0 || graceH > 0) ? 0 : "3px 3px 0 0" }} />
+                )}
+              </div>
+              <div className="bar-label">{d.label.split(" ")[0].slice(0,3)}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="bar-chart-legend">
+        <div className="bar-legend-item">
+          <div className="bar-legend-dot" style={{ background: "var(--accent)" }} />
+          Погашення
+        </div>
+        <div className="bar-legend-item">
+          <div className="bar-legend-dot" style={{ background: "var(--green)" }} />
+          Купони
+        </div>
+        <div className="bar-legend-item">
+          <div className="bar-legend-dot" style={{
+            background: `repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(239,68,68,0.4) 2px, rgba(239,68,68,0.4) 4px)`,
+            border: "1px dashed rgba(239,68,68,0.4)",
+          }} />
+          Грейс
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// YIELD CURVE COMPONENT
+// ============================================================
+function YieldCurveChart({ securities, title }) {
+  const sortedSecs = [...securities]
+    .filter(s => s.maturityDate && s.yieldToMaturity)
+    .sort((a, b) => new Date(a.maturityDate) - new Date(b.maturityDate));
+
+  if (sortedSecs.length === 0) return <div className="card" style={{ textAlign: "center", color: "var(--text-muted)" }}>Немає даних</div>;
+
+  const now = new Date();
+  const points = sortedSecs.map(s => ({
+    years: Math.max(0.1, (new Date(s.maturityDate) - now) / (365.25 * 24 * 60 * 60 * 1000)),
+    ytm: s.yieldToMaturity,
+    name: s.name,
+    isin: s.isin,
+  }));
+
+  const minY = Math.floor(Math.min(...points.map(p => p.ytm)) - 1);
+  const maxY = Math.ceil(Math.max(...points.map(p => p.ytm)) + 1);
+  const maxX = Math.ceil(Math.max(...points.map(p => p.years)) + 0.5);
+
+  const w = 360, h = 200, padL = 40, padR = 20, padT = 20, padB = 30;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  const toX = (years) => padL + (years / maxX) * chartW;
+  const toY = (ytm) => padT + chartH - ((ytm - minY) / (maxY - minY)) * chartH;
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(p.years)} ${toY(p.ytm)}`).join(' ');
+
+  return (
+    <div className="card" style={{ padding: 12, overflow: "hidden" }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{title}</div>
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block", margin: "0 auto" }}>
+        {/* Grid lines */}
+        {Array.from({ length: 5 }, (_, i) => {
+          const y = minY + (i / 4) * (maxY - minY);
+          const py = toY(y);
+          return (
+            <g key={`grid-${i}`}>
+              <line x1={padL} y1={py} x2={w - padR} y2={py} stroke="var(--border-light)" strokeWidth="1" />
+              <text x={padL - 4} y={py + 3} textAnchor="end" fill="var(--text-muted)" style={{ fontSize: 9, fontFamily: "var(--font-mono)" }}>
+                {fmt(y, 0)}%
+              </text>
+            </g>
+          );
+        })}
+        {/* X axis labels */}
+        {Array.from({ length: Math.min(5, Math.ceil(maxX)) }, (_, i) => {
+          const xVal = (i + 1);
+          if (xVal > maxX) return null;
+          return (
+            <text key={`x-${i}`} x={toX(xVal)} y={h - 5} textAnchor="middle" fill="var(--text-muted)" style={{ fontSize: 9, fontFamily: "var(--font-mono)" }}>
+              {xVal}р
+            </text>
+          );
+        })}
+        {/* Curve line */}
+        <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Data points */}
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle cx={toX(p.years)} cy={toY(p.ytm)} r={5} fill="var(--bg-primary)" stroke="var(--accent)" strokeWidth="2" />
+            <text x={toX(p.years)} y={toY(p.ytm) - 10} textAnchor="middle" fill="var(--text-primary)" style={{ fontSize: 9, fontWeight: 600, fontFamily: "var(--font-mono)" }}>
+              {fmt(p.ytm, 1)}%
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+// ============================================================
+// WATERFALL CHART COMPONENT
+// ============================================================
+function WaterfallChart({ data, title, height = 180 }) {
+  const maxVal = Math.max(...data.map(d => Math.abs(d.value)));
+  const w = 360, h = height, padL = 50, padR = 10, padT = 20, padB = 50;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+  const barW = Math.min(30, chartW / data.length - 8);
+
+  let running = 0;
+  const bars = data.map((d, i) => {
+    const isTotal = d.isTotal;
+    const startVal = isTotal ? 0 : running;
+    const endVal = isTotal ? d.value : running + d.value;
+    running = endVal;
+    return { ...d, startVal, endVal, running };
+  });
+
+  const allValues = bars.flatMap(b => [b.startVal, b.endVal]);
+  const minVal = Math.min(0, ...allValues);
+  const maxValChart = Math.max(...allValues) * 1.1;
+
+  const toY = (v) => padT + chartH - ((v - minVal) / (maxValChart - minVal)) * chartH;
+  const toX = (i) => padL + (i / data.length) * chartW + (chartW / data.length - barW) / 2;
+
+  return (
+    <div style={{ overflow: "hidden" }}>
+      {title && <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: "var(--text-secondary)" }}>{title}</div>}
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
+        {/* Zero line */}
+        <line x1={padL} y1={toY(0)} x2={w - padR} y2={toY(0)} stroke="var(--border)" strokeWidth="1" />
+        {bars.map((b, i) => {
+          const y1 = toY(Math.max(b.startVal, b.endVal));
+          const y2 = toY(Math.min(b.startVal, b.endVal));
+          const barH = Math.max(2, y2 - y1);
+          const color = b.isTotal ? "var(--accent)" : b.value >= 0 ? "var(--green)" : "var(--red)";
+          return (
+            <g key={i}>
+              <rect x={toX(i)} y={y1} width={barW} height={barH} fill={color} rx={2} opacity={0.85} />
+              <text x={toX(i) + barW / 2} y={y1 - 4} textAnchor="middle" fill="var(--text-primary)" style={{ fontSize: 8, fontFamily: "var(--font-mono)", fontWeight: 600 }}>
+                {fmtShort(Math.abs(b.value))}
+              </text>
+              <text x={toX(i) + barW / 2} y={h - padB + 12} textAnchor="middle" fill="var(--text-muted)" style={{ fontSize: 7, fontFamily: "var(--font)" }} transform={`rotate(-30, ${toX(i) + barW / 2}, ${h - padB + 12})`}>
+                {b.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+// ============================================================
+// SIMPLE PIE CHART (for Balance Sheet composition)
+// ============================================================
+function SimplePieChart({ data, size = 140 }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const cx = size / 2, cy = size / 2, r = size / 2 - 8;
+
+  let cumAngle = -90;
+  const arcs = data.map(d => {
+    const pct = total > 0 ? d.value / total : 0;
+    const angle = pct * 360;
+    const startAngle = cumAngle;
+    const endAngle = cumAngle + angle;
+    cumAngle = endAngle;
+    return { ...d, pct, startAngle, endAngle };
+  });
+
+  const describeArc = (start, end) => {
+    const toRad = a => (a * Math.PI) / 180;
+    const large = end - start > 180 ? 1 : 0;
+    const x1 = cx + r * Math.cos(toRad(start));
+    const y1 = cy + r * Math.sin(toRad(start));
+    const x2 = cx + r * Math.cos(toRad(end));
+    const y2 = cy + r * Math.sin(toRad(end));
+    return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {arcs.map((a, i) => a.pct > 0 && (
+          <path key={i} d={describeArc(a.startAngle, a.endAngle - 0.3)} fill={a.color} opacity={0.85} />
+        ))}
+      </svg>
+      <div style={{ flex: 1 }}>
+        {data.map((d, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: d.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 10, color: "var(--text-secondary)", flex: 1 }}>{d.label}</span>
+            <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", fontWeight: 600 }}>{fmt(d.value / total * 100, 0)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================
+// PAGES
+// ============================================================
+
+// --- ONBOARDING ---
+function OnboardingPage({ onLogin }) {
+  const [step, setStep] = useState("phone");
+  const [phone, setPhone] = useState("+380");
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handlePhone = async () => { setLoading(true); await API.auth.requestOtp(phone); setLoading(false); setStep("otp"); };
+  const handleOtp = async () => { setLoading(true); await API.auth.verifyOtp(phone, otp); setLoading(false); setStep("kyc"); };
+  const handleKyc = async () => { setLoading(true); await API.delay(1500); setLoading(false); setStep("done"); };
+
+  return (
+    <div className="onboarding">
+      <div style={{ marginBottom: 16 }}><FinMartLogo size={52} textColor="#f0f4fc" /></div>
+      <div className="onboarding-sub">
+        {step === "phone" && "Інвестуйте в державні облігації прямо з картки"}
+        {step === "otp" && "Введіть код підтвердження"}
+        {step === "kyc" && "Верифікація через Дію"}
+        {step === "done" && "Акаунт створено!"}
+      </div>
+      <div className="onboarding-form animate-in" key={step}>
+        {step === "phone" && (<>
+          <div className="input-group">
+            <label>Номер телефону</label>
+            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+380 XX XXX XX XX" />
+          </div>
+          <button className="btn btn-primary" onClick={handlePhone} disabled={loading || phone.length < 10}>
+            {loading ? <div className="loading-spinner" /> : "Отримати код"}
+          </button>
+        </>)}
+        {step === "otp" && (<>
+          <div className="input-group">
+            <label>SMS код</label>
+            <input type="text" value={otp} onChange={e => setOtp(e.target.value)} placeholder="XXXX" maxLength={4} autoFocus style={{ textAlign: "center", fontSize: "24px", letterSpacing: "8px", fontFamily: "var(--font-mono)" }} />
+          </div>
+          <button className="btn btn-primary" onClick={handleOtp} disabled={loading || otp.length < 4}>
+            {loading ? <div className="loading-spinner" /> : "Підтвердити"}
+          </button>
+          <button className="btn btn-secondary" style={{ marginTop: 12 }} onClick={() => setStep("phone")}>Змінити номер</button>
+        </>)}
+        {step === "kyc" && (<>
+          <div className="card" style={{ textAlign: "center", marginBottom: 16 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🏛️</div>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>Верифікація через Дію</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+              Ви будете перенаправлені до додатку Дія для підтвердження особи. Це безпечно та займає 30 секунд.
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={handleKyc} disabled={loading}>
+            {loading ? <><div className="loading-spinner" /> Перевірка...</> : "Відкрити Дію"}
+          </button>
+        </>)}
+        {step === "done" && (<>
+          <div className="success-check"><Icon d={Icons.check} size={32} color="white" /></div>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 8 }}>Вітаємо!</div>
+            <div style={{ color: "var(--text-secondary)", fontSize: 14 }}>Ваш інвестиційний рахунок відкрито. Поповніть баланс та починайте інвестувати.</div>
+          </div>
+          <button className="btn btn-primary" onClick={() => onLogin()}>Почати</button>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
+// --- DASHBOARD / PORTFOLIO ---
+function DashboardPage({ navigate }) {
+  const [account, setAccount] = useState(null);
+  const [holdings, setHoldings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([API.portfolio.get(), API.portfolio.getHoldings()]).then(([p, h]) => {
+      setAccount(p.account);
+      setHoldings(h);
+      setLoading(false);
+    });
+  }, []);
+
+  const graceAlerts = MOCK_TRANSACTIONS.filter(t => t.isCreditFunded && t.graceExpiryDate && daysUntil(t.graceExpiryDate) <= 30 && daysUntil(t.graceExpiryDate) > 0);
+
+  const totalUnrealized = holdings.reduce((sum, h) => {
+    const sec = getSecurityByIsin(h.isin);
+    return sum + (sec ? (sec.bid - h.avgPurchasePrice) * h.quantity : 0);
+  }, 0);
+
+  const portfolioValuation = holdings.reduce((acc, h) => {
+    const sec = getSecurityByIsin(h.isin);
+    if (!sec) return acc;
+    const cur = sec.currency;
+    if (!acc[cur]) acc[cur] = { marketValue: 0, historicalCost: 0 };
+    acc[cur].marketValue += sec.bid * h.quantity;
+    acc[cur].historicalCost += h.avgPurchasePrice * h.quantity;
+    return acc;
+  }, {});
+
+  const totalMarketValueUAH = Object.entries(portfolioValuation).reduce((sum, [cur, v]) => sum + v.marketValue * (fxRates[cur] || 1), 0);
+
+  if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 80 }}><div className="loading-spinner" /></div>;
+
+  return (
+    <div className="page animate-in">
+      {graceAlerts.map(alert => (
+        <div className="grace-alert" key={alert.txId} style={{ marginTop: 16 }}>
+          <Icon d={Icons.clock} size={18} color="var(--red)" />
+          <div className="grace-alert-text">
+            <div className="grace-alert-title">Грейс-період: {daysUntil(alert.graceExpiryDate)} днів</div>
+            <div className="grace-alert-body">
+              Поповнення {fmtCurrency(alert.amount, alert.currency)} від {fmtDate(alert.drawdownDate)}. Грейс спливає {fmtDate(alert.graceExpiryDate)}.
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <PortfolioPieChart
+        holdings={holdings}
+        account={account}
+        portfolioValuation={portfolioValuation}
+        navigate={navigate}
+        onTitleClick={() => navigate("assets")}
+        onSliceClick={null}
+      />
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => navigate("deposit")}>
+          <Icon d={Icons.plus} size={16} /> Поповнити
+        </button>
+        <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => navigate("withdraw")}>
+          <Icon d={Icons.send} size={16} /> Вивести
+        </button>
+      </div>
+
+      <div className="summary-grid">
+        <div className="summary-card">
+          <div className="summary-label">Поточний результат</div>
+          <div className={`summary-value sm ${account.currentResult >= 0 ? 'green' : ''}`}>
+            {account.currentResult >= 0 ? '+' : ''}{fmtCurrency(account.currentResult)}
+          </div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-label">Загалом зароблено</div>
+          <div className="summary-value sm green">+{fmtCurrency(account.totalLifetimeEarnings)}</div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-label">Нереалізований P&L</div>
+          <div className={`summary-value sm ${totalUnrealized >= 0 ? 'green' : ''}`}>
+            {totalUnrealized >= 0 ? '+' : ''}{fmtCurrency(totalUnrealized)}
+          </div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-label">Історична вартість</div>
+          <div className="summary-value sm">{fmt(Object.entries(portfolioValuation).reduce((s, [c, v]) => s + v.historicalCost * (fxRates[c]||1), 0), 0)} ₴</div>
+        </div>
+      </div>
+
+      <div className="section-title">Утримання до погашення</div>
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>Прогнозований дохід (брутто)</span>
+          <span style={{ fontWeight: 700, color: "var(--green)", fontFamily: "var(--font-mono)" }}>+8,245.00 ₴</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>ПДФО + військовий збір</span>
+          <span style={{ fontWeight: 700, color: "var(--red)", fontFamily: "var(--font-mono)" }}>−1,567.55 ₴</span>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--border-light)", paddingTop: 12 }}>
+          <span style={{ fontWeight: 600, fontSize: 14 }}>Чистий дохід</span>
+          <span style={{ fontWeight: 700, fontSize: 16, color: "var(--green)", fontFamily: "var(--font-mono)" }}>+6,677.45 ₴</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- ASSETS PAGE (Активи) ---
+function AssetsPage({ navigate }) {
+  const [account, setAccount] = useState(null);
+  const [holdings, setHoldings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState(null); // null = all, or slice key
+
+  useEffect(() => {
+    Promise.all([API.portfolio.get(), API.portfolio.getHoldings()]).then(([p, h]) => {
+      setAccount(p.account);
+      setHoldings(h);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 80 }}><div className="loading-spinner" /></div>;
+
+  const portfolioValuation = holdings.reduce((acc, h) => {
+    const sec = getSecurityByIsin(h.isin);
+    if (!sec) return acc;
+    const cur = sec.currency;
+    if (!acc[cur]) acc[cur] = { marketValue: 0, historicalCost: 0 };
+    acc[cur].marketValue += sec.bid * h.quantity;
+    acc[cur].historicalCost += h.avgPurchasePrice * h.quantity;
+    return acc;
+  }, {});
+
+  const handleSliceClick = (key) => {
+    setFilterType(prev => prev === key ? null : key);
+  };
+
+  // When slice is clicked, show filtered list
+  const getFilteredHoldings = () => {
+    if (!filterType) return holdings;
+    const curMap = { "Облігації UAH": "UAH", "Облігації USD": "USD", "Облігації EUR": "EUR" };
+    const cur = curMap[filterType];
+    if (cur) return holdings.filter(h => { const s = getSecurityByIsin(h.isin); return s && s.currency === cur; });
+    return holdings;
+  };
+
+  const filtered = getFilteredHoldings();
+
+  return (
+    <div className="page animate-in">
+      <PortfolioPieChart
+        holdings={holdings}
+        account={account}
+        portfolioValuation={portfolioValuation}
+        navigate={navigate}
+        onTitleClick={() => setFilterType(null)}
+        onSliceClick={handleSliceClick}
+      />
+    </div>
+  );
+}
+
+// --- CASH FLOWS PAGE (Грошові потоки) ---
+function CashFlowsPage({ navigate }) {
+  const [showDetails, setShowDetails] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(null);
+
+  const handleBarClick = (month) => {
+    setSelectedMonth(month);
+    setShowDetails(true);
+  };
+
+  const filteredDetails = selectedMonth
+    ? MOCK_CASHFLOW_DETAILS.filter(d => d.date.startsWith(selectedMonth))
+    : MOCK_CASHFLOW_DETAILS;
+
+  const detailsTitle = selectedMonth
+    ? MOCK_MONTHLY_CASHFLOWS.find(m => m.month === selectedMonth)?.label || selectedMonth
+    : "Усі потоки";
+
+  return (
+    <div className="page animate-in">
+      <div style={{ marginTop: 16 }}>
+        <div className="section-title clickable-title" onClick={() => setShowDetails(!showDetails)}>
+          Грошові потоки по місяцях ›
+        </div>
+        <div className="card" style={{ padding: 12 }}>
+          <CashFlowBarChart data={MOCK_MONTHLY_CASHFLOWS} onBarClick={handleBarClick} />
+        </div>
+
+        {/* Summary cards */}
+        <div className="summary-grid" style={{ marginTop: 16 }}>
+          <div className="summary-card">
+            <div className="summary-label">Купони (12 міс)</div>
+            <div className="summary-value sm green">+{fmt(MOCK_MONTHLY_CASHFLOWS.reduce((s, m) => s + m.coupons, 0), 0)} ₴</div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-label">Погашення (12 міс)</div>
+            <div className="summary-value sm">{fmt(MOCK_MONTHLY_CASHFLOWS.reduce((s, m) => s + m.settlements, 0), 0)} ₴</div>
+          </div>
+        </div>
+
+        {/* Detailed schedule */}
+        {showDetails && (
+          <div className="animate-in">
+            <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>{detailsTitle}</span>
+              {selectedMonth && (
+                <button className="btn btn-sm btn-secondary" onClick={() => { setSelectedMonth(null); }}>
+                  Усі
+                </button>
+              )}
+            </div>
+            <div className="card" style={{ padding: 0 }}>
+              {filteredDetails.map((cf, i) => {
+                const sym = cf.currency === "UAH" ? "₴" : cf.currency === "USD" ? "$" : "€";
+                return (
+                  <div className={`cf-item cf-type-${cf.type}`} key={i} style={{ margin: "0 16px", cursor: cf.isin ? "pointer" : "default" }}
+                    onClick={() => cf.isin && navigate("security", cf.isin)}>
+                    <div className="cf-date">{fmtDate(cf.date)}</div>
+                    <div className="cf-info">
+                      <div className="cf-label">{cf.label}</div>
+                      {cf.type !== "grace" ? (
+                        <div className="cf-amount">+{fmt(cf.amount)} {sym}</div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "var(--red)", fontWeight: 600, marginTop: 2 }}>⚠️ {fmt(cf.amount)} {sym}</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- SECURITIES PAGE (Цінні папери) ---
+function SecuritiesPage({ navigate }) {
+  const [tab, setTab] = useState("government"); // government | corporate
+
+  const govSecurities = MOCK_SECURITIES.filter(s => s.category === "government");
+  const corpSecurities = MOCK_SECURITIES.filter(s => s.category === "corporate");
+
+  return (
+    <div className="page animate-in" style={{ paddingTop: 16 }}>
+      {/* Tab switcher */}
+      <div className="tab-switcher">
+        <button className={`tab-btn ${tab === "government" ? "active" : ""}`} onClick={() => setTab("government")}>Державні</button>
+        <button className={`tab-btn ${tab === "corporate" ? "active" : ""}`} onClick={() => setTab("corporate")}>Корпоративні</button>
+      </div>
+
+      {tab === "government" && (
+        <div className="animate-in">
+          {/* Government securities table */}
+          <div className="card" style={{ padding: 8, overflow: "auto" }}>
+            <table className="sec-table">
+              <thead>
+                <tr>
+                  <th>ISIN</th>
+                  <th>Погашення</th>
+                  <th>Bid</th>
+                  <th>Ask</th>
+                  <th>YTM</th>
+                </tr>
+              </thead>
+              <tbody>
+                {govSecurities.map(s => {
+                  const inPortf = isInPortfolio(s.isin);
+                  return (
+                    <tr key={s.isin}>
+                      <td>
+                        <div style={{ fontSize: 11, fontWeight: 600, fontFamily: "var(--font)" }}>{s.name}</div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{s.isin}</div>
+                      </td>
+                      <td style={{ fontSize: 11 }}>{fmtDate(s.maturityDate)}</td>
+                      <td>
+                        <span className={inPortf ? "bid-link" : "bid-inactive"} onClick={() => inPortf && navigate("security", s.isin)}>
+                          {fmt(s.bid)}
+                        </span>
+                      </td>
+                      <td className="ask-link">{fmt(s.ask)}</td>
+                      <td style={{ color: "var(--green)", fontWeight: 600 }}>{fmt(s.yieldToMaturity, 1)}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Yield Curve button */}
+          <button className="btn btn-secondary" style={{ marginTop: 12 }} onClick={() => navigate("yieldCurveGov")}>
+            <Icon d={Icons.trendingUp} size={16} /> Крива доходності
+          </button>
+        </div>
+      )}
+
+      {tab === "corporate" && (
+        <div className="animate-in">
+          {/* Corporate securities table */}
+          <div className="card" style={{ padding: 8, overflow: "auto" }}>
+            <table className="sec-table">
+              <thead>
+                <tr>
+                  <th>ISIN / Емітент</th>
+                  <th>Погашення</th>
+                  <th>Bid</th>
+                  <th>Ask</th>
+                  <th>YTM</th>
+                </tr>
+              </thead>
+              <tbody>
+                {corpSecurities.map(s => {
+                  const inPortf = isInPortfolio(s.isin);
+                  return (
+                    <tr key={s.isin}>
+                      <td>
+                        <div style={{ fontSize: 11, fontWeight: 600, fontFamily: "var(--font)", cursor: "pointer", color: "var(--blue)" }}
+                          onClick={() => navigate("issuer", s.issuerId)}>
+                          {s.issuerName}
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", cursor: "pointer" }}
+                          onClick={() => navigate("issuer", s.issuerId)}>
+                          {s.isin}
+                        </div>
+                      </td>
+                      <td style={{ fontSize: 11 }}>{fmtDate(s.maturityDate)}</td>
+                      <td>
+                        <span className={inPortf ? "bid-link" : "bid-inactive"} onClick={() => inPortf && navigate("security", s.isin)}>
+                          {fmt(s.bid)}
+                        </span>
+                      </td>
+                      <td className="ask-link">{fmt(s.ask)}</td>
+                      <td style={{ color: "var(--green)", fontWeight: 600 }}>{fmt(s.yieldToMaturity, 1)}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Yield Curve button */}
+          <button className="btn btn-secondary" style={{ marginTop: 12 }} onClick={() => navigate("yieldCurveCorp")}>
+            <Icon d={Icons.trendingUp} size={16} /> Крива доходності
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- YIELD CURVE PAGE ---
+function YieldCurvePage({ type, goBack }) {
+  const isGov = type === "government";
+  const secs = MOCK_SECURITIES.filter(s => s.category === (isGov ? "government" : "corporate") && s.currency === "UAH");
+  const title = isGov ? "Крива доходності державних облігацій" : "Крива доходності корпоративних облігацій";
+
+  return (
+    <div className="page animate-in" style={{ paddingTop: 16 }}>
+      <YieldCurveChart securities={secs} title={title} />
+      {!isGov && (
+        <>
+          <div style={{ marginTop: 16 }}>
+            <YieldCurveChart
+              securities={MOCK_SECURITIES.filter(s => s.category === "corporate" && s.currency === "USD")}
+              title="Крива доходності (USD)"
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// --- ISSUER DETAIL PAGE ---
+function IssuerPage({ issuerId, navigate, goBack }) {
+  const issuer = MOCK_ISSUERS[issuerId];
+  const issuerSecurities = MOCK_SECURITIES.filter(s => s.issuerId === issuerId);
+  const [viewMode, setViewMode] = useState("table"); // table | chart
+  const [finSection, setFinSection] = useState("pnl"); // pnl | balance | cfl
+
+  if (!issuer) return <div className="page" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Емітента не знайдено</div>;
+
+  const f = issuer.financials;
+  const lastYear = f.years[f.years.length - 1];
+
+  return (
+    <div className="page animate-in" style={{ paddingTop: 16 }}>
+      {/* Issuer header */}
+      <div className="card" style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{issuer.name}</div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>{issuer.sector}</div>
+        <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{issuer.description}</div>
+      </div>
+
+      {/* Securities of this issuer */}
+      <div className="issuer-section">
+        <div className="issuer-section-title">
+          <Icon d={Icons.briefcase} size={14} color="var(--text-muted)" />
+          Цінні папери емітента
+        </div>
+        {issuerSecurities.map(s => (
+          <div key={s.isin} className="card card-clickable" style={{ padding: "12px 16px" }}
+            onClick={() => navigate("security", s.isin)}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginTop: 2 }}>{s.isin}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "var(--green)", fontFamily: "var(--font-mono)" }}>{fmt(s.yieldToMaturity, 1)}%</div>
+                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>YTM</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+              <span>Номінал: {fmt(s.faceValue, 0)} {s.currency === "UAH" ? "₴" : "$"}</span>
+              <span>Купон: {fmt(s.couponRate, 1)}%</span>
+              <span>{s.couponFrequency === "quarterly" ? "Щокварт." : "Раз/півроку"}</span>
+            </div>
+            {s.offerDates && s.offerDates.length > 0 && (
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
+                Оферти: {s.offerDates.map(d => fmtDate(d)).join(", ")}
+              </div>
+            )}
+            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+              Обсяг випуску: {fmtShort(s.issueVolume)} {s.currency === "UAH" ? "₴" : "$"}
+            </div>
+            <div style={{ marginTop: 6 }}>
+              <span style={{ fontSize: 10, color: "var(--blue)", cursor: "pointer" }}
+                onClick={(e) => { e.stopPropagation(); }}>
+                <Icon d={Icons.externalLink} size={10} color="var(--blue)" /> Проспект емісії
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Financial Reports */}
+      <div className="issuer-section">
+        <div className="issuer-section-title">
+          <Icon d={Icons.fileText} size={14} color="var(--text-muted)" />
+          Звітність емітента
+        </div>
+
+        {/* Official report link */}
+        <div className="card" style={{ padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 13 }}>Офіційна звітність (з підписами)</span>
+          <span style={{ color: "var(--blue)", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+            <Icon d={Icons.externalLink} size={12} color="var(--blue)" /> PDF
+          </span>
+        </div>
+
+        {/* View mode toggle */}
+        <div className="tab-switcher" style={{ marginTop: 8 }}>
+          <button className={`tab-btn ${viewMode === "table" ? "active" : ""}`} onClick={() => setViewMode("table")}>Таблиця</button>
+          <button className={`tab-btn ${viewMode === "chart" ? "active" : ""}`} onClick={() => setViewMode("chart")}>Графіки</button>
+        </div>
+
+        {viewMode === "table" && (
+          <div className="animate-in">
+            {/* Financial section tabs */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, overflow: "auto" }}>
+              {[["pnl", "P&L"], ["balance", "Баланс"], ["cfl", "Cash Flow"]].map(([key, label]) => (
+                <button key={key} className={`filter-btn ${finSection === key ? "active" : ""}`} onClick={() => setFinSection(key)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {finSection === "pnl" && (
+              <div className="card" style={{ padding: 8, overflow: "auto" }}>
+                <table className="fin-table">
+                  <thead>
+                    <tr>
+                      <th>Показник (млн ₴)</th>
+                      {f.years.map(y => <th key={y}>{y}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Виручка</td>{f.revenue.map((v, i) => <td key={i}>{fmtShort(v)}</td>)}</tr>
+                    <tr><td>Собівартість</td>{f.costOfSales.map((v, i) => <td key={i}>({fmtShort(v)})</td>)}</tr>
+                    <tr className="highlight"><td>Валовий прибуток</td>{f.grossProfit.map((v, i) => <td key={i}>{fmtShort(v)}</td>)}</tr>
+                    <tr><td>Операційні витрати</td>{f.operatingExpenses.map((v, i) => <td key={i}>({fmtShort(v)})</td>)}</tr>
+                    <tr className="highlight"><td>EBITDA</td>{f.ebitda.map((v, i) => <td key={i}>{fmtShort(v)}</td>)}</tr>
+                    <tr className="highlight"><td>Чистий прибуток</td>{f.netIncome.map((v, i) => <td key={i} style={{ color: "var(--green)" }}>{fmtShort(v)}</td>)}</tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {finSection === "balance" && (
+              <div className="card" style={{ padding: 8, overflow: "auto" }}>
+                <table className="fin-table">
+                  <thead>
+                    <tr>
+                      <th>Показник (млн ₴)</th>
+                      {f.years.map(y => <th key={y}>{y}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="highlight"><td>Всього активів</td>{f.totalAssets.map((v, i) => <td key={i}>{fmtShort(v)}</td>)}</tr>
+                    <tr><td>Оборотні активи</td>{f.currentAssets.map((v, i) => <td key={i}>{fmtShort(v)}</td>)}</tr>
+                    <tr><td>Основні засоби</td>{f.fixedAssets.map((v, i) => <td key={i}>{fmtShort(v)}</td>)}</tr>
+                    <tr className="highlight"><td>Всього зобовʼязань</td>{f.totalLiabilities.map((v, i) => <td key={i}>{fmtShort(v)}</td>)}</tr>
+                    <tr><td>Поточні зобовʼязання</td>{f.currentLiabilities.map((v, i) => <td key={i}>{fmtShort(v)}</td>)}</tr>
+                    <tr><td>Довгостроковий борг</td>{f.longTermDebt.map((v, i) => <td key={i}>{fmtShort(v)}</td>)}</tr>
+                    <tr className="highlight"><td>Власний капітал</td>{f.equity.map((v, i) => <td key={i} style={{ color: "var(--green)" }}>{fmtShort(v)}</td>)}</tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {finSection === "cfl" && (
+              <div className="card" style={{ padding: 8, overflow: "auto" }}>
+                <table className="fin-table">
+                  <thead>
+                    <tr>
+                      <th>Показник (млн ₴)</th>
+                      {f.years.map(y => <th key={y}>{y}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="highlight"><td>Операційний CF</td>{f.operatingCashFlow.map((v, i) => <td key={i} style={{ color: "var(--green)" }}>{fmtShort(v)}</td>)}</tr>
+                    <tr><td>Інвестиційний CF</td>{f.investingCashFlow.map((v, i) => <td key={i} style={{ color: "var(--red)" }}>{fmtShort(v)}</td>)}</tr>
+                    <tr><td>Фінансовий CF</td>{f.financingCashFlow.map((v, i) => <td key={i} style={{ color: v < 0 ? "var(--red)" : "var(--green)" }}>{fmtShort(v)}</td>)}</tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {viewMode === "chart" && (
+          <div className="animate-in">
+            {/* Revenue to Net Income waterfall */}
+            <div className="card" style={{ padding: 12 }}>
+              <WaterfallChart
+                title={`Від виручки до чистого прибутку (${lastYear})`}
+                data={[
+                  { label: "Виручка", value: f.revenue[2], isTotal: true },
+                  { label: "Собівартість", value: -f.costOfSales[2] },
+                  { label: "Опер. витрати", value: -f.operatingExpenses[2] },
+                  { label: "Інше", value: f.netIncome[2] - f.grossProfit[2] + f.operatingExpenses[2] },
+                  { label: "Чистий прибуток", value: f.netIncome[2], isTotal: true },
+                ]}
+              />
+            </div>
+
+            {/* Assets composition pie */}
+            <div className="card" style={{ padding: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12, color: "var(--text-secondary)" }}>Склад активів ({lastYear})</div>
+              <SimplePieChart data={[
+                { label: "Основні засоби", value: f.fixedAssets[2], color: "var(--accent)" },
+                { label: "Оборотні активи", value: f.currentAssets[2], color: "var(--blue)" },
+              ]} />
+            </div>
+
+            {/* Liabilities composition pie */}
+            <div className="card" style={{ padding: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12, color: "var(--text-secondary)" }}>Склад зобовʼязань ({lastYear})</div>
+              <SimplePieChart data={[
+                { label: "Власний капітал", value: f.equity[2], color: "var(--green)" },
+                { label: "Довгостроковий борг", value: f.longTermDebt[2], color: "var(--yellow)" },
+                { label: "Поточні зобовʼязання", value: f.currentLiabilities[2], color: "var(--red)" },
+              ]} />
+            </div>
+
+            {/* Net Income to Operating CF waterfall */}
+            <div className="card" style={{ padding: 12 }}>
+              <WaterfallChart
+                title={`Від чистого прибутку до опер. CF (${lastYear})`}
+                data={[
+                  { label: "Чистий прибуток", value: f.netIncome[2], isTotal: true },
+                  { label: "Амортизація", value: f.depreciation[2] },
+                  { label: "Зміна WC", value: f.workingCapitalChange[2] },
+                  { label: "Інше", value: f.operatingCashFlow[2] - f.netIncome[2] - f.depreciation[2] - f.workingCapitalChange[2] },
+                  { label: "Опер. CF", value: f.operatingCashFlow[2], isTotal: true },
+                ]}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Issuer News */}
+      <div className="issuer-section">
+        <div className="issuer-section-title">
+          <Icon d={Icons.newspaper} size={14} color="var(--text-muted)" />
+          Новини емітента
+        </div>
+        <div className="card" style={{ padding: "0 16px" }}>
+          {issuer.news.map((n, i) => (
+            <div className="news-item" key={i}>
+              <div className="news-date">{fmtDate(n.date)}</div>
+              <div className="news-title">{n.title}</div>
+              <div className="news-body">{n.body}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- CATALOG ---
+function CatalogPage({ navigate }) {
+  const [securities, setSecurities] = useState([]);
+  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    API.securities.list().then(s => { setSecurities(s); setLoading(false); });
+  }, []);
+
+  const filtered = securities.filter(s => {
+    if (filter === "all") return true;
+    if (filter === "uah") return s.currency === "UAH" && s.type !== "military_bond";
+    if (filter === "usd") return s.currency === "USD";
+    if (filter === "eur") return s.currency === "EUR";
+    if (filter === "military") return s.type === "military_bond";
+    if (filter === "corporate") return s.type === "corporate";
+    return true;
+  });
+
+  return (
+    <div className="animate-in">
+      <div className="filters">
+        {[["all", "Усі"], ["uah", "UAH"], ["usd", "USD"], ["eur", "EUR"], ["military", "Військові"], ["corporate", "Корп."]].map(([key, label]) => (
+          <button key={key} className={`filter-btn ${filter === key ? 'active' : ''}`} onClick={() => setFilter(key)}>{label}</button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 60 }}><div className="loading-spinner" /></div>
+      ) : (
+        filtered.map(s => (
+          <div className="security-row" key={s.isin} onClick={() => navigate("security", s.isin)}>
+            <div className="security-info">
+              <div className="security-name">
+                {s.type === "military_bond" && <span className="tag tag-military" style={{ marginRight: 6 }}>ВО</span>}
+                {s.type === "corporate" && <span className="tag tag-corp" style={{ marginRight: 6 }}>Корп</span>}
+                <span className={`tag tag-${s.currency.toLowerCase()}`} style={{ marginRight: 6 }}>{s.currency}</span>
+                {s.name}
+              </div>
+              <div className="security-meta">{s.isin} · Погашення {fmtDate(s.maturityDate)}</div>
+            </div>
+            <div className="security-right">
+              <div className="security-yield">{fmt(s.yieldToMaturity, 1)}%</div>
+              <div className="security-price">Ask: {fmt(s.ask)}</div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// --- SECURITY DETAIL ---
+function SecurityDetailPage({ isin, navigate, goBack }) {
+  const [sec, setSec] = useState(null);
+  const [showBuy, setShowBuy] = useState(false);
+  const [showSell, setShowSell] = useState(false);
+  const [qty, setQty] = useState(1);
+  const [tradeSuccess, setTradeSuccess] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const holding = MOCK_HOLDINGS.find(h => h.isin === isin);
+
+  useEffect(() => {
+    API.securities.get(isin).then(setSec);
+  }, [isin]);
+
+  if (!sec) return <div style={{ display: "flex", justifyContent: "center", padding: 80 }}><div className="loading-spinner" /></div>;
+
+  const handleTrade = async (side) => {
+    setLoading(true);
+    if (side === "buy") await API.trade.buy(isin, qty);
+    else await API.trade.sell(isin, qty);
+    setLoading(false);
+    setShowBuy(false);
+    setShowSell(false);
+    setTradeSuccess(side);
+    setTimeout(() => setTradeSuccess(null), 3000);
+  };
+
+  const currSymbol = sec.currency === "UAH" ? "₴" : sec.currency === "USD" ? "$" : "€";
+
+  return (
+    <div className="animate-in" style={{ paddingBottom: 80 }}>
+      <div className="detail-hero">
+        <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 8 }}>
+          {sec.type === "military_bond" && <span className="tag tag-military">Військова</span>}
+          {sec.type === "corporate" && <span className="tag tag-corp">Корпоративна</span>}
+          <span className={`tag tag-${sec.currency.toLowerCase()}`}>{sec.currency}</span>
+        </div>
+        <div className="detail-name">{sec.name}</div>
+        <div className="detail-isin">{sec.isin}</div>
+        <div className="detail-yield-big">{fmt(sec.yieldToMaturity, 1)}%</div>
+        <div className="detail-yield-label">Дохідність до погашення</div>
+      </div>
+
+      <div className="detail-grid">
+        <div className="detail-cell">
+          <div className="detail-cell-label">Bid</div>
+          <div className="detail-cell-value">{fmt(sec.bid)} {currSymbol}</div>
+        </div>
+        <div className="detail-cell">
+          <div className="detail-cell-label">Ask</div>
+          <div className="detail-cell-value">{fmt(sec.ask)} {currSymbol}</div>
+        </div>
+        <div className="detail-cell">
+          <div className="detail-cell-label">Купон</div>
+          <div className="detail-cell-value">{fmt(sec.couponRate, 1)}%</div>
+        </div>
+        <div className="detail-cell">
+          <div className="detail-cell-label">Номінал</div>
+          <div className="detail-cell-value">{fmt(sec.faceValue, 0)} {currSymbol}</div>
+        </div>
+        <div className="detail-cell">
+          <div className="detail-cell-label">Дата погашення</div>
+          <div className="detail-cell-value">{fmtDate(sec.maturityDate)}</div>
+        </div>
+        <div className="detail-cell">
+          <div className="detail-cell-label">Наступний купон</div>
+          <div className="detail-cell-value">{fmtDate(sec.nextCouponDate)}</div>
+        </div>
+        <div className="detail-cell">
+          <div className="detail-cell-label">Виплата купону</div>
+          <div className="detail-cell-value">{sec.couponFrequency === "quarterly" ? "Щоквартально" : "Раз на півроку"}</div>
+        </div>
+        <div className="detail-cell">
+          <div className="detail-cell-label">Дата випуску</div>
+          <div className="detail-cell-value">{fmtDate(sec.issueDate)}</div>
+        </div>
+      </div>
+
+      {/* Corporate bond extra info */}
+      {sec.type === "corporate" && sec.issuerId && (
+        <div style={{ padding: "0 20px" }}>
+          <button className="btn btn-secondary btn-sm" style={{ width: "100%", marginBottom: 12 }}
+            onClick={() => navigate("issuer", sec.issuerId)}>
+            <Icon d={Icons.user} size={14} /> Сторінка емітента: {sec.issuerName}
+          </button>
+        </div>
+      )}
+
+      {holding && (
+        <div style={{ padding: "0 20px" }}>
+          <div className="section-title">Ваша позиція</div>
+          <div className="card">
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>Кількість</span>
+              <span style={{ fontWeight: 600, fontFamily: "var(--font-mono)" }}>{holding.quantity} шт.</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>Середня ціна купівлі</span>
+              <span style={{ fontWeight: 600, fontFamily: "var(--font-mono)" }}>{fmt(holding.avgPurchasePrice)} {currSymbol}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>Нереалізований P&L</span>
+              <span style={{ fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--green)" }}>
+                +{fmt((sec.bid - holding.avgPurchasePrice) * holding.quantity)} {currSymbol}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>Отримано купонів</span>
+              <span style={{ fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--green)" }}>
+                +{fmt(holding.totalInterestEarned)} {currSymbol}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ padding: "0 20px" }}>
+        <div className="section-title">Історія ціни</div>
+        <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 100 }}>
+          <MiniChart />
+          <span style={{ marginLeft: 12, color: "var(--text-muted)", fontSize: 12 }}>Графік (демо)</span>
+        </div>
+      </div>
+
+      <div className="trade-panel">
+        {tradeSuccess && (
+          <div style={{ textAlign: "center", marginBottom: 12, color: "var(--green)", fontWeight: 600 }}>
+            ✓ {tradeSuccess === "buy" ? "Купівлю" : "Продаж"} виконано!
+          </div>
+        )}
+        <div className="trade-actions">
+          <button className="btn btn-green" style={{ flex: 1 }} onClick={() => setShowBuy(true)}>Купити</button>
+          {holding && <button className="btn btn-red" style={{ flex: 1 }} onClick={() => setShowSell(true)}>Продати</button>}
+        </div>
+      </div>
+
+      {(showBuy || showSell) && (
+        <div className="modal-overlay" onClick={() => { setShowBuy(false); setShowSell(false); }}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-handle" />
+            <div className="modal-title">{showBuy ? "Купити" : "Продати"} {sec.name}</div>
+            <div className="input-group">
+              <label>Кількість (шт.)</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
+                <input type="number" value={qty} onChange={e => setQty(Math.max(1, parseInt(e.target.value) || 1))} min={1} style={{ textAlign: "center" }} />
+                <button className="btn btn-secondary btn-sm" onClick={() => setQty(qty + 1)}>+</button>
+              </div>
+            </div>
+            <div className="card" style={{ marginTop: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>Ціна за 1 шт.</span>
+                <span style={{ fontFamily: "var(--font-mono)" }}>{fmt(showBuy ? sec.ask : sec.bid)} {currSymbol}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--border-light)", paddingTop: 8 }}>
+                <span style={{ fontWeight: 600 }}>Сума</span>
+                <span style={{ fontWeight: 700, fontFamily: "var(--font-mono)", fontSize: 18 }}>
+                  {fmt((showBuy ? sec.ask : sec.bid) * qty)} {currSymbol}
+                </span>
+              </div>
+            </div>
+            <button
+              className={`btn ${showBuy ? 'btn-green' : 'btn-red'}`}
+              style={{ marginTop: 16 }}
+              onClick={() => handleTrade(showBuy ? "buy" : "sell")}
+              disabled={loading}
+            >
+              {loading ? <div className="loading-spinner" /> : `${showBuy ? "Купити" : "Продати"} ${qty} шт.`}
+            </button>
+            <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={() => { setShowBuy(false); setShowSell(false); }}>
+              Скасувати
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- DEPOSIT PAGE ---
+function DepositPage({ goBack }) {
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("UAH");
+  const [method, setMethod] = useState("card");
+  const [isCredit, setIsCredit] = useState(false);
+  const [drawdownDate, setDrawdownDate] = useState("");
+  const [graceDays, setGraceDays] = useState("55");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleDeposit = async () => {
+    setLoading(true);
+    await API.deposit(parseFloat(amount), currency, method, isCredit ? { drawdownDate, graceDays: parseInt(graceDays) } : null);
+    setLoading(false);
+    setSuccess(true);
+  };
+
+  if (success) return (
+    <div className="page animate-in" style={{ paddingTop: 60, textAlign: "center" }}>
+      <div className="success-check"><Icon d={Icons.check} size={32} color="white" /></div>
+      <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 8 }}>Поповнено!</div>
+      <div style={{ color: "var(--text-secondary)", marginBottom: 24 }}>{fmtCurrency(parseFloat(amount), currency)} зараховано на рахунок</div>
+      <button className="btn btn-primary" onClick={goBack}>Повернутись</button>
+    </div>
+  );
+
+  return (
+    <div className="page animate-in" style={{ paddingTop: 16 }}>
+      <div className="input-group">
+        <label>Сума</label>
+        <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" />
+      </div>
+      <div className="input-group">
+        <label>Валюта</label>
+        <select value={currency} onChange={e => setCurrency(e.target.value)}>
+          <option value="UAH">UAH — Гривня</option>
+          <option value="USD">USD — Долар</option>
+          <option value="EUR">EUR — Євро</option>
+        </select>
+      </div>
+      <div className="section-title">Спосіб оплати</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+        {[["card", "💳 Банківська картка"], ["apple_pay", " Apple Pay"], ["google_pay", "🤖 Google Pay"]].map(([key, label]) => (
+          <div key={key} className="card card-clickable" onClick={() => setMethod(key)}
+            style={{ padding: "14px 16px", border: method === key ? "1px solid var(--accent)" : undefined, background: method === key ? "var(--accent-glow)" : undefined }}>
+            <span style={{ fontSize: 14 }}>{label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <div className="toggle-row">
+          <span className="toggle-label">Оплата з кредитного ліміту?</span>
+          <button className={`toggle ${isCredit ? 'on' : ''}`} onClick={() => setIsCredit(!isCredit)} />
+        </div>
+        {isCredit && (
+          <div className="animate-in" style={{ marginTop: 12 }}>
+            <div className="input-group">
+              <label>Перший день списання</label>
+              <input type="date" value={drawdownDate} onChange={e => setDrawdownDate(e.target.value)} />
+            </div>
+            <div className="input-group">
+              <label>Грейс-період (днів)</label>
+              <input type="number" value={graceDays} onChange={e => setGraceDays(e.target.value)} placeholder="55" />
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5, marginTop: 4 }}>
+              Ми нагадаємо про закінчення грейс-періоду за 7, 3 та 1 день.
+            </div>
+          </div>
+        )}
+      </div>
+      <button className="btn btn-primary" style={{ marginTop: 20 }} onClick={handleDeposit} disabled={!amount || loading}>
+        {loading ? <div className="loading-spinner" /> : `Поповнити ${amount ? fmtCurrency(parseFloat(amount), currency) : ""}`}
+      </button>
+    </div>
+  );
+}
+
+// --- WITHDRAW PAGE ---
+function WithdrawPage({ goBack }) {
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("UAH");
+  const [dest, setDest] = useState("card");
+  const [iban, setIban] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleWithdraw = async () => {
+    setLoading(true);
+    await API.withdraw(parseFloat(amount), currency, dest);
+    setLoading(false);
+    setSuccess(true);
+  };
+
+  if (success) return (
+    <div className="page animate-in" style={{ paddingTop: 60, textAlign: "center" }}>
+      <div className="success-check"><Icon d={Icons.check} size={32} color="white" /></div>
+      <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 8 }}>Виведення оформлено!</div>
+      <div style={{ color: "var(--text-secondary)", marginBottom: 24 }}>{fmtCurrency(parseFloat(amount), currency)} буде зараховано протягом 1-3 робочих днів</div>
+      <button className="btn btn-primary" onClick={goBack}>Повернутись</button>
+    </div>
+  );
+
+  return (
+    <div className="page animate-in" style={{ paddingTop: 16 }}>
+      <div className="input-group">
+        <label>Сума</label>
+        <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" />
+      </div>
+      <div className="input-group">
+        <label>Валюта</label>
+        <select value={currency} onChange={e => setCurrency(e.target.value)}>
+          <option value="UAH">UAH</option>
+          <option value="USD">USD</option>
+        </select>
+      </div>
+      <div className="section-title">Куди вивести</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+        <div className="card card-clickable" onClick={() => setDest("card")}
+          style={{ padding: "14px 16px", border: dest === "card" ? "1px solid var(--accent)" : undefined }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>💳 На картку</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>Visa •••• 4821</div>
+        </div>
+        <div className="card card-clickable" onClick={() => setDest("iban")}
+          style={{ padding: "14px 16px", border: dest === "iban" ? "1px solid var(--accent)" : undefined }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>🏦 На IBAN</div>
+        </div>
+      </div>
+      {dest === "iban" && (
+        <div className="input-group animate-in">
+          <label>IBAN</label>
+          <input value={iban} onChange={e => setIban(e.target.value)} placeholder="UA..." style={{ fontFamily: "var(--font-mono)", fontSize: 13 }} />
+        </div>
+      )}
+      <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={handleWithdraw} disabled={!amount || loading}>
+        {loading ? <div className="loading-spinner" /> : "Вивести"}
+      </button>
+    </div>
+  );
+}
+
+// --- NOTIFICATIONS ---
+function NotificationsPage() {
+  const [notifs, setNotifs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    API.notifications.list().then(n => { setNotifs(n); setLoading(false); });
+  }, []);
+
+  if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 60 }}><div className="loading-spinner" /></div>;
+
+  return (
+    <div className="animate-in">
+      {notifs.map(n => (
+        <div key={n.id} className={`notif-item ${!n.isRead ? 'unread' : ''}`} onClick={() => {
+          setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+          API.notifications.markRead(n.id);
+        }}>
+          <div className={`notif-dot ${n.isRead ? 'read' : ''}`} />
+          <div className="notif-body">
+            <div className="notif-title">{n.title}</div>
+            <div className="notif-text">{n.body}</div>
+            <div className="notif-time">{fmtDate(n.sentAt)}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// --- WALLET PAGE ---
+function WalletPage({ navigate }) {
+  const [trades, setTrades] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    API.trade.history().then(t => { setTrades(t); setLoading(false); });
+  }, []);
+
+  return (
+    <div className="page animate-in" style={{ paddingTop: 16 }}>
+      <div className="summary-grid">
+        <div className="summary-card">
+          <div className="summary-label">Баланс UAH</div>
+          <div className="summary-value sm">{fmt(MOCK_ACCOUNT.balanceUah)} ₴</div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-label">Баланс USD</div>
+          <div className="summary-value sm">${fmt(MOCK_ACCOUNT.balanceUsd)}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => navigate("deposit")}>
+          <Icon d={Icons.plus} size={16} /> Поповнити
+        </button>
+        <button className="btn btn-secondary btn-sm" style={{ flex: 1 }} onClick={() => navigate("withdraw")}>
+          <Icon d={Icons.send} size={16} /> Вивести
+        </button>
+      </div>
+      <div className="section-title">Історія угод</div>
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><div className="loading-spinner" /></div>
+      ) : (
+        trades.map(t => {
+          const sec = getSecurityByIsin(t.isin);
+          return (
+            <div key={t.tradeId} className="card" style={{ padding: "14px 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                    <span style={{ color: t.side === "buy" ? "var(--green)" : "var(--red)", marginRight: 6 }}>
+                      {t.side === "buy" ? "КУПІВЛЯ" : "ПРОДАЖ"}
+                    </span>
+                    {sec?.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4, fontFamily: "var(--font-mono)" }}>
+                    {t.quantity} шт. × {fmt(t.price)}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono)" }}>{fmt(t.totalAmount)}</div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>{fmtDate(t.createdAt)}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// MAIN APP
+// ============================================================
+function App() {
+  const [authed, setAuthed] = useState(false);
+  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [pageParam, setPageParam] = useState(null);
+  const [pageHistory, setPageHistory] = useState([]);
+
+  const navigate = useCallback((page, param = null) => {
+    setPageHistory(prev => [...prev, { page: currentPage, param: pageParam }]);
+    setCurrentPage(page);
+    setPageParam(param);
+  }, [currentPage, pageParam]);
+
+  const goBack = useCallback(() => {
+    if (pageHistory.length > 0) {
+      const prev = pageHistory[pageHistory.length - 1];
+      setPageHistory(h => h.slice(0, -1));
+      setCurrentPage(prev.page);
+      setPageParam(prev.param);
+    }
+  }, [pageHistory]);
+
+  const isSubPage = ["security", "deposit", "withdraw", "yieldCurveGov", "yieldCurveCorp", "issuer"].includes(currentPage);
+  const unreadNotifs = MOCK_NOTIFICATIONS.filter(n => !n.isRead).length;
+
+  if (!authed) return (
+    <>
+      <style>{CSS}</style>
+      <div className="app">
+        <OnboardingPage onLogin={() => setAuthed(true)} />
+      </div>
+    </>
+  );
+
+  const pageTitles = {
+    dashboard: null, assets: "Активи", cashflows: "Грошові потоки", securities: "Цінні папери",
+    catalog: "Каталог", wallet: "Гаманець", notifications: "Сповіщення",
+    security: "Деталі", deposit: "Поповнення", withdraw: "Виведення",
+    yieldCurveGov: "Крива доходності", yieldCurveCorp: "Крива доходності",
+    issuer: "Емітент",
+  };
+
+  return (
+    <>
+      <style>{CSS}</style>
+      <div className="app">
+        <div className="demo-banner">🔧 DEMO — FinMart — усі API замокані</div>
+
+        {/* Header */}
+        <div className="header">
+          {isSubPage ? (
+            <button className="header-back" onClick={goBack}><Icon d={Icons.chevron_left} size={22} /> Назад</button>
+          ) : (
+            <FinMartLogo size={28} />
+          )}
+          {pageTitles[currentPage] && <div className="header-title">{pageTitles[currentPage]}</div>}
+          {!isSubPage && (
+            <div className="header-badge" style={{ cursor: "pointer" }} onClick={() => navigate("notifications")}>
+              <Icon d={Icons.bell} size={22} color="var(--text-secondary)" />
+              {unreadNotifs > 0 && <div className="dot" />}
+            </div>
+          )}
+          {isSubPage && <div style={{ width: 60 }} />}
+        </div>
+
+        {/* Pages */}
+        {currentPage === "dashboard" && <DashboardPage navigate={navigate} />}
+        {currentPage === "assets" && <AssetsPage navigate={navigate} />}
+        {currentPage === "cashflows" && <CashFlowsPage navigate={navigate} />}
+        {currentPage === "securities" && <SecuritiesPage navigate={navigate} />}
+        {currentPage === "catalog" && <CatalogPage navigate={navigate} />}
+        {currentPage === "wallet" && <WalletPage navigate={navigate} />}
+        {currentPage === "notifications" && <NotificationsPage />}
+        {currentPage === "security" && <SecurityDetailPage isin={pageParam} navigate={navigate} goBack={goBack} />}
+        {currentPage === "deposit" && <DepositPage goBack={goBack} />}
+        {currentPage === "withdraw" && <WithdrawPage goBack={goBack} />}
+        {currentPage === "yieldCurveGov" && <YieldCurvePage type="government" goBack={goBack} />}
+        {currentPage === "yieldCurveCorp" && <YieldCurvePage type="corporate" goBack={goBack} />}
+        {currentPage === "issuer" && <IssuerPage issuerId={pageParam} navigate={navigate} goBack={goBack} />}
+
+        {/* Bottom nav — 5 tabs now */}
+        {!isSubPage && (
+          <div className="bottom-nav">
+            {[
+              ["dashboard", Icons.home, "Портфель"],
+              ["assets", Icons.pie, "Активи"],
+              ["cashflows", Icons.barChart, "Потоки"],
+              ["securities", Icons.briefcase, "ЦП"],
+              ["wallet", Icons.wallet, "Гаманець"],
+            ].map(([page, icon, label]) => (
+              <button key={page} className={`nav-item ${currentPage === page ? 'active' : ''}`} onClick={() => { setCurrentPage(page); setPageParam(null); setPageHistory([]); }}>
+                <Icon d={icon} size={20} />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
